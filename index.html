@@ -71,5 +71,29 @@
     <script type="module" src="js/reports.js"></script>
     <script type="module" src="js/machines.js"></script>
     <script type="module" src="js/notifications.js"></script>
+
+
+    
+    <script>
+        // Global error handler
+        window.onerror = function(message, source, lineno, colno, error) {
+            console.error("Uncaught Global Error:", { message, source, lineno, colno, error });
+            const appContent = document.getElementById('app-content');
+            if (appContent) {
+                appContent.innerHTML = `
+                    <div class="notification is-danger mt-6">
+                        <h1 class="title has-text-danger">Aplikasi Mengalami Masalah!</h1>
+                        <p>Terjadi kesalahan fatal yang tidak terduga. Mohon coba refresh halaman atau hubungi administrator.</p>
+                        <p><strong>Detail Error:</strong> ${message}</p>
+                        <p><small>Lokasi: ${source}:${lineno}</small></p>
+                    </div>
+                `;
+            } else {
+                alert("Terjadi kesalahan fatal pada aplikasi. Silakan coba lagi.");
+            }
+            return true; // Mencegah default browser error handling
+        };
+    </script>
+
 </body>
 </html>
