@@ -1,8 +1,8 @@
 // js/router.js
 import { auth, db } from './firebase.js';
 import { renderLoginPage, renderRegisterPage, logout } from './auth.js';
-import { renderDashboardPage } from './dashboard.js'; // PASTIKAN INI TERIMPOR
-import { renderReportsPage } from './reports.js';
+import { renderDashboardPage } from './dashboard.js';
+import { renderReportsPage } from './reports.js'; // PASTIKAN INI TERIMPOR
 import { renderMachinesPage, renderMachineDetailPage } from './machines.js';
 import { setupNotificationListener } from './notifications.js';
 
@@ -24,18 +24,17 @@ const loadPage = async (path) => {
     }
 
     switch (path) {
-        // ... (kasus login dan register) ...
-        case '/dashboard':
-            // Izinkan admin dan teknisi akses dashboard
+        // ... (kasus login dan register, dashboard) ...
+        case '/reports':
             if (user && (userRole === 'admin' || userRole === 'technician')) {
-                await renderDashboardPage(appContent); // Panggil fungsi renderDashboardPage
+                await renderReportsPage(appContent); // Panggil fungsi renderReportsPage
             } else {
                 appContent.innerHTML = `<p class="notification is-danger">Anda tidak memiliki izin untuk mengakses halaman ini.</p>`;
                 if (user) navigateTo('/login');
             }
             break;
-        // ... (kasus reports, machines, dll) ...
+        // ... (kasus machines, dll) ...
     }
 };
 
-// ... (kode lainnya) ...
+// ... (sisa kode router.js) ...
