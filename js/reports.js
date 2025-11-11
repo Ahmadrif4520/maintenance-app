@@ -1,5 +1,6 @@
 // js/reports.js
 import { db, auth, firebase_firestore_FieldValue } from './firebase.js';
+import { navigateTo } from './router.js'; // Untuk navigasi (misal, setelah edit)
 
 // Variabel global untuk menyimpan daftar mesin yang akan digunakan di dropdown
 let machinesData = [];
@@ -99,8 +100,21 @@ export const renderReportsPage = async (containerElement) => {
 
         <div class="box mt-4">
             <h2 class="subtitle">Daftar Laporan</h2>
-            <div class="buttons mb-3">
-                <button class="button is-success" id="export-reports-xlsx">Export ke XLSX</button>
+            <div class="field is-grouped is-grouped-right">
+                <div class="control">
+                    <div class="select">
+                        <select id="report-category-filter">
+                            <option value="all">Semua Kategori</option>
+                            <option value="cooling_tower">Cooling Tower</option>
+                            <option value="kompresor_unit">Kompresor Unit</option>
+                            <option value="material_handling">Material Handling</option>
+                            <!-- Tambahkan kategori lain jika perlu -->
+                        </select>
+                    </div>
+                </div>
+                <div class="control">
+                    <button class="button is-success" id="export-reports-xlsx">Export ke XLSX</button>
+                </div>
             </div>
             <div class="table-container">
                 <table class="table is-striped is-hoverable is-fullwidth">
@@ -108,11 +122,11 @@ export const renderReportsPage = async (containerElement) => {
                         <tr>
                             <th>Waktu Lapor</th>
                             <th>Mesin</th>
+                            <th>Kategori</th>
                             <th>Teknisi</th>
                             <th>Tipe</th>
                             <th>Downtime (menit)</th>
                             <th>Status Setelah</th>
-                            <th>Deskripsi</th>
                             <th>Aksi</th>
                         </tr>
                     </thead>
@@ -149,24 +163,51 @@ async function populateMachineDropdown() {
             machineSelect.appendChild(option);
         });
     } catch (error) {
-        console.error("Error populating machine dropdown:", error);
+        console.error("[Reports] Error populating machine dropdown:", error);
         alert("Gagal memuat daftar mesin.");
     }
 }
 
+let reportsUnsubscribe = null; // Variabel untuk menyimpan fungsi unsubscribe listener Firestore
+let currentReportCategoryFilter = 'all'; // Default filter untuk laporan
+
 function setupReportsListener() {
     const reportsListBody = document.getElementById('reports-list');
-    if (!reportsListBody) return;
+    if (!reportsListBody) {
+        console.warn("[Reports] reports-list element not found.");
+        return;
+    }
 
-    db.collection('log_laporan').orderBy('createdAt', 'desc').onSnapshot(async (snapshot) => {
+    // Jika sudah ada listener sebelumnya, hentikan dulu
+    if (reportsUnsubscribe) {
+        reportsUnsubscribe();
+    }
+
+    let queryRef = db.collection('log_laporan');
+
+    // Terapkan filter kategori laporan
+    if (currentReportCategoryFilter !== 'all') {
+        queryRef = queryRef.where('machineCategory', '==', currentReportCategoryFilter);
+    }
+
+    reportsUnsubscribe = queryRef.orderBy('createdAt', 'desc').onSnapshot(async (snapshot) => {
         reportsListBody.innerHTML = ''; // Bersihkan list sebelumnya
         const currentUser = auth.currentUser;
         let currentUserRole = 'technician'; // Default
         if (currentUser) {
-            const userDoc = await db.collection('users').doc(currentUser.uid).get();
-            if (userDoc.exists) {
-                currentUserRole = userDoc.data().role;
+            try {
+                const userDoc = await db.collection('users').doc(currentUser.uid).get();
+                if (userDoc.exists) {
+                    currentUserRole = userDoc.data().role;
+                }
+            } catch (error) {
+                console.error("[Reports] Error fetching current user role:", error);
             }
+        }
+
+        if (snapshot.empty) {
+            reportsListBody.innerHTML = `<tr><td colspan="8" class="has-text-centered">Tidak ada laporan untuk kategori ini.</td></tr>`;
+            return;
         }
 
         snapshot.forEach(doc => {
@@ -179,20 +220,23 @@ function setupReportsListener() {
 
             row.insertCell(0).textContent = formattedTime;
             row.insertCell(1).textContent = `${report.machineName} (${report.machineId})`;
-            row.insertCell(2).textContent = report.technicianName;
-            row.insertCell(3).textContent = report.type;
-            row.insertCell(4).textContent = report.downtimeMinutes;
-            row.insertCell(5).textContent = report.statusAfterCompletion;
-            row.insertCell(6).textContent = report.description.substring(0, 50) + (report.description.length > 50 ? '...' : ''); // Pratinjau deskripsi
+            row.insertCell(2).textContent = report.machineCategory ? report.machineCategory.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()) : 'N/A';
+            row.insertCell(3).textContent = report.technicianName;
+            row.insertCell(4).textContent = report.type;
+            row.insertCell(5).textContent = report.downtimeMinutes;
+            row.insertCell(6).textContent = report.statusAfterCompletion;
+            const descCell = row.insertCell(7);
+            descCell.textContent = report.description.substring(0, 50) + (report.description.length > 50 ? '...' : ''); // Pratinjau deskripsi
+            descCell.title = report.description; // Deskripsi lengkap sebagai tooltip
 
-            const actionsCell = row.insertCell(7);
+            const actionsCell = row.insertCell(8); // Kolom aksi bergeser
             actionsCell.classList.add('has-text-right');
 
-            // Tombol Edit dan Delete (Owner/Admin bisa semua, Teknisi hanya miliknya sendiri)
-            const isOwner = currentUserRole === 'admin';
+            // Tombol Edit dan Delete (Admin bisa semua, Teknisi hanya miliknya sendiri)
+            const isOwnerOrAdmin = currentUserRole === 'admin';
             const isMyReport = currentUser && report.submittedBy === currentUser.uid;
 
-            if (isOwner || isMyReport) {
+            if (isOwnerOrAdmin || isMyReport) {
                 const editButton = document.createElement('button');
                 editButton.classList.add('button', 'is-small', 'is-info', 'mr-2');
                 editButton.innerHTML = `<span class="icon is-small"><i class="fas fa-edit"></i></span><span>Edit</span>`;
@@ -207,7 +251,7 @@ function setupReportsListener() {
             }
         });
     }, (error) => {
-        console.error("Error listening to reports:", error);
+        console.error("[Reports] Error listening to reports:", error);
         reportsListBody.innerHTML = `<tr><td colspan="8" class="has-text-danger">Gagal memuat laporan: ${error.message}</td></tr>`;
     });
 }
@@ -216,6 +260,15 @@ function addReportsEventListeners() {
     document.getElementById('report-form').addEventListener('submit', handleReportSubmission);
     document.getElementById('export-reports-xlsx').addEventListener('click', exportReportsToXLSX);
     document.getElementById('cancel-edit-button').addEventListener('click', resetForm);
+    
+    // Event listener untuk filter kategori laporan
+    const reportCategoryFilter = document.getElementById('report-category-filter');
+    if(reportCategoryFilter) {
+        reportCategoryFilter.addEventListener('change', (event) => {
+            currentReportCategoryFilter = event.target.value;
+            setupReportsListener(); // Panggil ulang listener dengan filter baru
+        });
+    }
 }
 
 async function handleReportSubmission(event) {
@@ -258,6 +311,7 @@ async function handleReportSubmission(event) {
     const reportData = {
         machineId: selectedMachine.machineId,
         machineName: selectedMachine.name,
+        machineCategory: selectedMachine.category, // Ini PENTING untuk filter Dashboard
         technicianId: currentUser.uid,
         technicianName: technicianName,
         startTime: firebase.firestore.Timestamp.fromDate(startTime),
@@ -272,7 +326,10 @@ async function handleReportSubmission(event) {
     try {
         if (editingReportId) {
             // Mode edit
-            await db.collection('log_laporan').doc(editingReportId).update(reportData);
+            await db.collection('log_laporan').doc(editingReportId).update({
+                ...reportData,
+                updatedAt: firebase_firestore_FieldValue.serverTimestamp() // Tambahkan timestamp update
+            });
             alert("Laporan berhasil diperbarui!");
         } else {
             // Mode tambah baru
@@ -282,7 +339,7 @@ async function handleReportSubmission(event) {
         }
         resetForm(); // Reset form setelah sukses
     } catch (error) {
-        console.error("Error saving report:", error);
+        console.error("[Reports] Error saving report:", error);
         alert(`Gagal menyimpan laporan: ${error.message}. Pastikan Anda memiliki izin yang cukup.`);
     }
 }
@@ -292,8 +349,9 @@ function editReport(id, report) {
     document.getElementById('report-machine-id').value = report.machineId;
     document.getElementById('report-technician-name').value = report.technicianName;
     // Format tanggal untuk input datetime-local
-    document.getElementById('report-start-time').value = report.startTime.toDate().toISOString().slice(0, 16);
-    document.getElementById('report-end-time').value = report.endTime.toDate().toISOString().slice(0, 16);
+    // Pastikan report.startTime/endTime adalah Firestore Timestamp sebelum memanggil toDate()
+    document.getElementById('report-start-time').value = report.startTime && typeof report.startTime.toDate === 'function' ? report.startTime.toDate().toISOString().slice(0, 16) : '';
+    document.getElementById('report-end-time').value = report.endTime && typeof report.endTime.toDate === 'function' ? report.endTime.toDate().toISOString().slice(0, 16) : '';
     document.getElementById('report-downtime-minutes').value = report.downtimeMinutes;
     document.getElementById('report-type').value = report.type;
     document.getElementById('report-description').value = report.description;
@@ -314,7 +372,7 @@ async function deleteReport(id) {
         await db.collection('log_laporan').doc(id).delete();
         alert("Laporan berhasil dihapus!");
     } catch (error) {
-        console.error("Error deleting report:", error);
+        console.error("[Reports] Error deleting report:", error);
         alert(`Gagal menghapus laporan: ${error.message}. Pastikan Anda memiliki izin yang cukup.`);
     }
 }
@@ -341,6 +399,7 @@ async function exportReportsToXLSX() {
                 'Waktu Lapor': data.createdAt && typeof data.createdAt.toDate === 'function' ? data.createdAt.toDate().toLocaleString('id-ID') : 'N/A',
                 'ID Mesin': data.machineId,
                 'Nama Mesin': data.machineName,
+                'Kategori Mesin': data.machineCategory ? data.machineCategory.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()) : 'N/A',
                 'ID Teknisi': data.technicianId,
                 'Nama Teknisi': data.technicianName,
                 'Waktu Mulai': data.startTime && typeof data.startTime.toDate === 'function' ? data.startTime.toDate().toLocaleString('id-ID') : 'N/A',
@@ -358,6 +417,13 @@ async function exportReportsToXLSX() {
             return;
         }
 
+        // Pastikan XLSX global object tersedia
+        if (typeof XLSX === 'undefined') {
+            alert("Pustaka XLSX tidak dimuat. Mohon refresh halaman.");
+            console.error("XLSX library not found. Make sure <script src='https://unpkg.com/xlsx/dist/xlsx.full.min.js'></script> is included in index.html");
+            return;
+        }
+
         const ws = XLSX.utils.json_to_sheet(reports);
         const wb = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(wb, ws, "Laporan Maintenance");
@@ -366,7 +432,7 @@ async function exportReportsToXLSX() {
         alert("Data laporan berhasil diekspor ke laporan_maintenance.xlsx!");
 
     } catch (error) {
-        console.error("Error exporting reports:", error);
+        console.error("[Reports] Error exporting reports:", error);
         alert(`Gagal mengekspor laporan: ${error.message}.`);
     }
 }
