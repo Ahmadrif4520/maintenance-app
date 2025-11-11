@@ -1,0 +1,32 @@
+/* css/style.css */
+body {
+    min-height: 100vh; /* Agar footer selalu di bawah */
+    display: flex;
+    flex-direction: column;
+}
+main {
+    flex: 1; /* Agar main content mengambil ruang yang tersedia */
+}
+#notification-area {
+    padding: 0.5rem 1rem;
+    background-color: #ffe08a; /* Warna notifikasi default */
+    border-bottom: 1px solid #ffcc5c;
+    color: #8c6a00;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.progress {
+    margin-top: 2rem;
+}
+
+/* Styles untuk card di dashboard */
+.kpi-card .value {
+    font-size: 2.5rem;
+    font-weight: bold;
+    color: #363636; /* Warna teks utama Bulma */
+}
+.kpi-card .label {
+    font-size: 0.9rem;
+    color: #7a7a7a;
+}
