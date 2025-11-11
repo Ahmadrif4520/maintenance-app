@@ -1,6 +1,6 @@
 // js/auth.js
 import { auth, db, firebase_firestore_FieldValue } from './firebase.js'; // Import dari firebase.js
-import { navigateTo } from './router.js'; // Untuk mengalihkan halaman setelah login/register
+//import { navigateTo } from './router.js'; // Untuk mengalihkan halaman setelah login/register
 
 // --- UI Rendering Functions ---
 // Fungsi ini mengembalikan string HTML untuk halaman login
