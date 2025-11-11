@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Monitoring Maintenance App</title>
+    <!-- Firebase SDK CDN -->
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+    <!-- Chart.js CDN (untuk dashboard) -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <!-- Optional: Lightweight CSS Framework (contoh: Bulma) -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bulma@0.9.4/css/bulma.min.css">
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <nav class="navbar is-info" role="navigation" aria-label="main navigation">
+        <div class="navbar-brand">
+            <a class="navbar-item" href="/">
+                <strong class="has-text-white">Maintenance App</strong>
+            </a>
+            <a role="button" class="navbar-burger" aria-label="menu" aria-expanded="false" data-target="navbarBasicExample">
+                <span aria-hidden="true"></span>
+                <span aria-hidden="true"></span>
+                <span aria-hidden="true"></span>
+            </a>
+        </div>
+
+        <div id="navbarBasicExample" class="navbar-menu">
+            <div class="navbar-start" id="nav-links">
+                <!-- Navigasi akan dimuat di sini setelah login -->
+            </div>
+            <div class="navbar-end">
+                <div class="navbar-item">
+                    <div class="buttons" id="auth-buttons">
+                        <!-- Tombol Login/Logout akan dimuat di sini -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <div class="section" id="notification-area" style="display:none;">
+        <div class="container">
+            <!-- Toast notifications will appear here -->
+        </div>
+    </div>
+
+    <main class="section">
+        <div class="container" id="app-content">
+            <!-- Konten halaman akan dimuat di sini (login/register, dashboard, reports, etc.) -->
+        </div>
+    </main>
+
+    <footer class="footer">
+        <div class="content has-text-centered">
+            <p>&copy; 2023 Monitoring Maintenance App. Powered by Firebase.</p>
+        </div>
+    </footer>
+
+    <!-- Your JavaScript files (Urutan penting!) -->
+    <script type="module" src="js/firebase.js"></script>
+    <script type="module" src="js/auth.js"></script>
+    <script type="module" src="js/router.js"></script>
+    <script type="module" src="js/main.js"></script>
+    <script type="module" src="js/dashboard.js"></script>
+    <script type="module" src="js/reports.js"></script>
+    <script type="module" src="js/machines.js"></script>
+    <script type="module" src="js/notifications.js"></script>
+</body>
+</html>
