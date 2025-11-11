@@ -3,10 +3,24 @@ import { db, firebase_firestore_FieldValue } from './firebase.js';
 
 // Variabel global untuk instance Chart.js
 let kpiChartInstance;
+let currentCategoryFilter = 'all_relevant'; // Default filter untuk dashboard
 
 export const renderDashboardPage = async (containerElement) => {
     containerElement.innerHTML = `
         <h1 class="title">Dashboard KPI</h1>
+        <div class="field is-grouped is-grouped-right">
+            <div class="control">
+                <div class="select">
+                    <select id="kpi-category-filter">
+                        <option value="all_relevant">Semua Mesin (Non-Material Handling)</option>
+                        <option value="cooling_tower">Cooling Tower</option>
+                        <option value="kompresor_unit">Kompresor Unit</option>
+                        <option value="material_handling">Material Handling</option>
+                        <!-- Tambahkan kategori lain jika perlu -->
+                    </select>
+                </div>
+            </div>
+        </div>
         <div class="columns is-multiline">
             <div class="column is-one-quarter">
                 <div class="box kpi-card">
@@ -52,15 +66,64 @@ export const renderDashboardPage = async (containerElement) => {
         </div>
     `;
 
-    // Ambil dan hitung data KPI
+    // Set nilai filter sebelumnya jika ada
+    const categoryFilterElement = document.getElementById('kpi-category-filter');
+    if (categoryFilterElement) {
+        categoryFilterElement.value = currentCategoryFilter;
+
+        // Tambahkan event listener untuk filter kategori
+        categoryFilterElement.addEventListener('change', (event) => {
+            currentCategoryFilter = event.target.value;
+            fetchAndCalculateKPIs(); // Panggil ulang perhitungan dengan filter baru
+        });
+    }
+
+    // Ambil dan hitung data KPI awal
     await fetchAndCalculateKPIs();
 };
 
 async function fetchAndCalculateKPIs() {
     try {
-        const reportsSnapshot = await db.collection('log_laporan').get();
-        const reports = reportsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        let reports = [];
 
+        // Penanganan khusus untuk filter 'material_handling'
+        if (currentCategoryFilter === 'material_handling') {
+            const appContent = document.getElementById('app-content');
+            if (appContent) {
+                appContent.innerHTML = `
+                    <h1 class="title">Dashboard KPI</h1>
+                    <div class="notification is-info mt-4">
+                        <p>Dashboard ini menampilkan KPI untuk kategori selain Material Handling.</p>
+                        <p>Untuk data Material Handling, silakan gunakan fitur Log Laporan dan filter berdasarkan kategori tersebut, atau di halaman laporan servis terpisah.</p>
+                        <button class="button is-light mt-3" onclick="window.location.reload()">Refresh Dashboard</button>
+                    </div>`;
+            }
+            // Kosongkan KPI
+            document.getElementById('mttr-value').innerText = 'N/A';
+            document.getElementById('mtbf-value').innerText = 'N/A';
+            document.getElementById('total-downtime-value').innerText = 'N/A';
+            document.getElementById('total-jobs-value').innerText = 'N/A';
+            if (kpiChartInstance) kpiChartInstance.destroy(); // Hancurkan chart jika ada
+            const monthlySummaryDiv = document.getElementById('monthly-summary-data');
+            if(monthlySummaryDiv) monthlySummaryDiv.innerHTML = '<p class="has-text-centered">Tidak ada data untuk kategori ini di dashboard ini.</p>';
+            return; // Hentikan fungsi
+        }
+
+        // Ambil data dari Firestore dengan filter kategori
+        let queryRef = db.collection('log_laporan');
+        if (currentCategoryFilter === 'all_relevant') {
+            // Ambil semua kecuali material_handling
+            queryRef = queryRef.where('machineCategory', 'in', ['cooling_tower', 'kompresor_unit']); // Asumsi hanya 2 kategori ini untuk 'all_relevant'
+        } else {
+            // Filter berdasarkan kategori spesifik
+            queryRef = queryRef.where('machineCategory', '==', currentCategoryFilter);
+        }
+        
+        const reportsSnapshot = await queryRef.get();
+        reports = reportsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+
+
+        // --- Logika perhitungan KPI (sama seperti sebelumnya, hanya beroperasi pada `reports` yang sudah terfilter) ---
         let totalCorrectiveDowntime = 0; // dalam menit
         let correctiveCount = 0;
         let preventiveCount = 0;
@@ -68,7 +131,6 @@ async function fetchAndCalculateKPIs() {
         const monthlySummary = {};
 
         reports.forEach(report => {
-            // --- Validasi dan Konversi Data ---
             const reportEndTime = report.endTime && typeof report.endTime.toDate === 'function' ? report.endTime.toDate() : (report.endTime ? new Date(report.endTime) : null);
             const reportCreatedAt = report.createdAt && typeof report.createdAt.toDate === 'function' ? report.createdAt.toDate() : (report.createdAt ? new Date(report.createdAt) : null);
             const downtimeMinutes = typeof report.downtimeMinutes === 'number' ? report.downtimeMinutes : 0;
@@ -89,7 +151,6 @@ async function fetchAndCalculateKPIs() {
                 preventiveCount++;
             }
 
-            // Untuk Monthly Summary
             if (reportCreatedAt) {
                 const monthYear = `${reportCreatedAt.getFullYear()}-${(reportCreatedAt.getMonth() + 1).toString().padStart(2, '0')}`;
                 if (!monthlySummary[monthYear]) {
@@ -103,7 +164,7 @@ async function fetchAndCalculateKPIs() {
             }
         });
 
-        // --- Perhitungan KPI (sama seperti sebelumnya) ---
+        // --- Perhitungan KPI ---
         const totalJobs = preventiveCount + correctiveCount;
         const mttr = correctiveCount > 0 ? totalCorrectiveDowntime / correctiveCount : 0;
         const totalDowntimeHours = totalCorrectiveDowntime / 60;
@@ -129,12 +190,10 @@ async function fetchAndCalculateKPIs() {
         document.getElementById('total-downtime-value').innerText = totalDowntimeHours.toFixed(2);
         document.getElementById('total-jobs-value').innerText = totalJobs;
 
-        // Render Chart.js untuk rasio Preventive vs Corrective
         renderChart(preventiveCount, correctiveCount);
 
-        // Render Monthly Summary
         const monthlySummaryDiv = document.getElementById('monthly-summary-data');
-        if (monthlySummaryDiv) { // Pastikan elemen ada
+        if (monthlySummaryDiv) {
             if (Object.keys(monthlySummary).length > 0) {
                 const sortedMonths = Object.keys(monthlySummary).sort();
                 let summaryHtml = '<table class="table is-striped is-hoverable is-fullwidth"><thead><tr><th>Bulan</th><th>Preventive</th><th>Corrective</th><th>Downtime (jam)</th></tr></thead><tbody>';
@@ -154,36 +213,28 @@ async function fetchAndCalculateKPIs() {
             } else {
                 monthlySummaryDiv.innerHTML = '<p class="has-text-centered">Tidak ada data ringkasan bulanan untuk ditampilkan.</p>';
             }
-        } else {
-            console.warn("[Dashboard] monthly-summary-data element not found.");
         }
-
 
     } catch (error) {
         console.error("Error fetching or calculating KPIs:", error);
-        // Tampilkan pesan error di UI
         const appContent = document.getElementById('app-content');
-        if (appContent) { // Pastikan appContent ada
+        if (appContent) {
             appContent.innerHTML = `<div class="notification is-danger">
                                         <h2 class="subtitle">Gagal memuat data KPI.</h2>
                                         <p>Detail error: ${error.message}</p>
-                                        <p>Mohon pastikan Anda memiliki koneksi internet dan izin akses yang sesuai.</p>
+                                        <p>Mohon pastikan Anda memiliki koneksi internet dan izin akses yang sesuai, serta struktur data laporan sudah benar.</p>
                                     </div>`;
-        } else {
-            alert(`Gagal memuat data KPI: ${error.message}`);
         }
     }
 }
 
-// Fungsi untuk merender grafik menggunakan Chart.js
 function renderChart(preventiveCount, correctiveCount) {
     const ctx = document.getElementById('kpi-chart');
-    if (!ctx) { // Pastikan elemen canvas ada
+    if (!ctx) {
         console.warn("[Dashboard] KPI Chart canvas element not found.");
         return;
     }
 
-    // Hancurkan instance chart sebelumnya jika ada, untuk menghindari duplikasi
     if (kpiChartInstance) {
         kpiChartInstance.destroy();
     }
@@ -196,8 +247,8 @@ function renderChart(preventiveCount, correctiveCount) {
                 label: 'Jumlah Pekerjaan',
                 data: [preventiveCount, correctiveCount],
                 backgroundColor: [
-                    'rgba(75, 192, 192, 0.8)', // Hijau-kebiruan untuk Preventive
-                    'rgba(255, 99, 132, 0.8)'  // Merah-muda untuk Corrective
+                    'rgba(75, 192, 192, 0.8)',
+                    'rgba(255, 99, 132, 0.8)'
                 ],
                 borderColor: [
                     'rgba(75, 192, 192, 1)',
