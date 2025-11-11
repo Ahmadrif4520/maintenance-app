@@ -1,6 +1,5 @@
 // js/reports.js
 import { db, auth, firebase_firestore_FieldValue } from './firebase.js';
-import { navigateTo } from './router.js'; // Untuk navigasi (misal, setelah edit)
 
 // Variabel global untuk menyimpan daftar mesin yang akan digunakan di dropdown
 let machinesData = [];
@@ -105,10 +104,10 @@ export const renderReportsPage = async (containerElement) => {
                     <div class="select">
                         <select id="report-category-filter">
                             <option value="all">Semua Kategori</option>
+                            <option value="general">General</option>
                             <option value="cooling_tower">Cooling Tower</option>
                             <option value="kompresor_unit">Kompresor Unit</option>
                             <option value="material_handling">Material Handling</option>
-                            <!-- Tambahkan kategori lain jika perlu -->
                         </select>
                     </div>
                 </div>
