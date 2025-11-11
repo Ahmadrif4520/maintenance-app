@@ -34,6 +34,7 @@ export const renderMachinesPage = async (containerElement) => {
                         <div class="select is-fullwidth">
                             <select id="machine-category" required>
                                 <option value="">Pilih Kategori</option>
+<option value="general">Mesin General</option>
                                 <option value="cooling_tower">Cooling Tower</option>
                                 <option value="kompresor_unit">Kompresor Unit</option>
                                 <option value="material_handling">Material Handling</option>
