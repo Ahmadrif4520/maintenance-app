@@ -13,11 +13,10 @@ export const renderDashboardPage = async (containerElement) => {
                 <div class="select">
                     <select id="kpi-category-filter">
                         <option value="all_relevant">Semua Mesin (Non-Material Handling)</option>
-                        <option value="general">Mesin General</option>
+                        <option value="general">General</option>
                         <option value="cooling_tower">Cooling Tower</option>
                         <option value="kompresor_unit">Kompresor Unit</option>
                         <option value="material_handling">Material Handling</option>
-                        <!-- Tambahkan kategori lain jika perlu -->
                     </select>
                 </div>
             </div>
@@ -91,6 +90,7 @@ async function fetchAndCalculateKPIs() {
         if (currentCategoryFilter === 'material_handling') {
             const appContent = document.getElementById('app-content');
             if (appContent) {
+                // Render ulang dashboard dengan pesan khusus untuk material handling
                 appContent.innerHTML = `
                     <h1 class="title">Dashboard KPI</h1>
                     <div class="notification is-info mt-4">
@@ -99,7 +99,7 @@ async function fetchAndCalculateKPIs() {
                         <button class="button is-light mt-3" onclick="window.location.reload()">Refresh Dashboard</button>
                     </div>`;
             }
-            // Kosongkan KPI
+            // Kosongkan semua tampilan KPI
             document.getElementById('mttr-value').innerText = 'N/A';
             document.getElementById('mtbf-value').innerText = 'N/A';
             document.getElementById('total-downtime-value').innerText = 'N/A';
@@ -114,9 +114,9 @@ async function fetchAndCalculateKPIs() {
         let queryRef = db.collection('log_laporan');
         if (currentCategoryFilter === 'all_relevant') {
             // Ambil semua kecuali material_handling
-            queryRef = queryRef.where('machineCategory', 'in', ['general','cooling_tower', 'kompresor_unit']); // Asumsi hanya 2 kategori ini untuk 'all_relevant'
+            queryRef = queryRef.where('machineCategory', 'in', ['general', 'cooling_tower', 'kompresor_unit']);
         } else {
-            // Filter berdasarkan kategori spesifik
+            // Filter berdasarkan kategori spesifik (general, cooling_tower, kompresor_unit)
             queryRef = queryRef.where('machineCategory', '==', currentCategoryFilter);
         }
         
