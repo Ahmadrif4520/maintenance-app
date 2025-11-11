@@ -16,7 +16,7 @@ export const renderMachinesPage = async (containerElement) => {
                 <div class="field">
                     <label class="label">ID Mesin Unik</label>
                     <div class="control">
-                        <input class="input" type="text" id="machine-machine-id" placeholder="Contoh: CT001, CP002" required>
+                        <input class="input" type="text" id="machine-machine-id" placeholder="Contoh: CT001, CP002, GEN001" required>
                     </div>
                     <p class="help">ID ini harus unik dan tidak dapat diubah setelah disimpan.</p>
                 </div>
@@ -24,7 +24,7 @@ export const renderMachinesPage = async (containerElement) => {
                 <div class="field">
                     <label class="label">Nama Mesin</label>
                     <div class="control">
-                        <input class="input" type="text" id="machine-name" placeholder="Contoh: Cooling Tower A" required>
+                        <input class="input" type="text" id="machine-name" placeholder="Contoh: Cooling Tower A, Mesin Press, Genset Utama" required>
                     </div>
                 </div>
 
@@ -34,12 +34,10 @@ export const renderMachinesPage = async (containerElement) => {
                         <div class="select is-fullwidth">
                             <select id="machine-category" required>
                                 <option value="">Pilih Kategori</option>
-                                <option value="general">Mesin General</option>
-
-<option value="cooling_tower">Cooling Tower</option>
+                                <option value="general">General</option>
+                                <option value="cooling_tower">Cooling Tower</option>
                                 <option value="kompresor_unit">Kompresor Unit</option>
                                 <option value="material_handling">Material Handling</option>
-                                <!-- Tambahkan kategori lain jika perlu -->
                             </select>
                         </div>
                     </div>
@@ -239,7 +237,7 @@ async function handleMachineSubmission(event) {
 
     let currentRuntimeHours = 0;
     let serviceIntervalHours = 0;
-    if (category !== 'material_handling') {
+    if (category !== 'material_handling') { // Hanya ambil dari input jika bukan material_handling
         currentRuntimeHours = parseInt(document.getElementById('machine-current-runtime-hours').value) || 0;
         serviceIntervalHours = parseInt(document.getElementById('machine-service-interval-hours').value) || 0;
     }
@@ -338,11 +336,8 @@ function resetForm() {
     // Reset nilai runtime/service interval ke 0 dan tampilkan kembali
     document.getElementById('machine-current-runtime-hours').value = 0;
     document.getElementById('machine-service-interval-hours').value = 0;
-    document.getElementById('runtime-hours-field').style.display = 'block';
-    document.getElementById('service-interval-hours-field').style.display = 'block';
-
-    document.getElementById('additional-details-container').innerHTML = ''; // Bersihkan dynamic fields
-    document.getElementById('machine-category').value = ''; // Reset kategori
+    // Panggil renderDynamicFields dengan kategori kosong untuk membersihkan dan menampilkan field default
+    renderDynamicFields('', {});
 }
 
 // --- Fungsi untuk mengelola field dinamis berdasarkan kategori ---
@@ -419,8 +414,9 @@ function renderDynamicFields(category, existingDetails = {}) {
                     </div>
                 `;
                 break;
+            case 'general': // Kategori general tidak memiliki additionalDetails
             default:
-                // Tidak ada field tambahan untuk kategori default/lainnya
+                // Tidak ada field tambahan untuk kategori default/general
                 break;
         }
     }
@@ -443,6 +439,9 @@ function getAdditionalDetailsFromForm(category) {
             details.driveType = document.getElementById('detail-drive-type')?.value || null;
             details.odometerKm = parseFloat(document.getElementById('detail-odometer-km')?.value) || null;
             details.serviceIntervalKm = parseFloat(document.getElementById('detail-service-interval-km')?.value) || null;
+            break;
+        case 'general': // General tidak memiliki additionalDetails
+        default:
             break;
     }
     return details;
