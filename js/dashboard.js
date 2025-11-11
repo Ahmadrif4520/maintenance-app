@@ -114,7 +114,7 @@ async function fetchAndCalculateKPIs() {
         let queryRef = db.collection('log_laporan');
         if (currentCategoryFilter === 'all_relevant') {
             // Ambil semua kecuali material_handling
-            queryRef = queryRef.where('machineCategory', 'in', ['cooling_tower', 'kompresor_unit']); // Asumsi hanya 2 kategori ini untuk 'all_relevant'
+            queryRef = queryRef.where('machineCategory', 'in', ['general','cooling_tower', 'kompresor_unit']); // Asumsi hanya 2 kategori ini untuk 'all_relevant'
         } else {
             // Filter berdasarkan kategori spesifik
             queryRef = queryRef.where('machineCategory', '==', currentCategoryFilter);
