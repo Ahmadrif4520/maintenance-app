@@ -6,6 +6,12 @@ let kpiChartInstance;
 let currentCategoryFilter = 'all_relevant'; // Default filter untuk dashboard
 
 export const renderDashboardPage = async (containerElement) => {
+    // Pastikan containerElement ada sebelum mencoba mengisi innerHTML-nya
+    if (!containerElement) {
+        console.error("[Dashboard] Container element for dashboard not found.");
+        return;
+    }
+
     containerElement.innerHTML = `
         <h1 class="title">Dashboard KPI</h1>
         <div class="field is-grouped is-grouped-right">
@@ -21,7 +27,7 @@ export const renderDashboardPage = async (containerElement) => {
                 </div>
             </div>
         </div>
-        <div class="columns is-multiline">
+        <div class="columns is-multiline" id="kpi-cards-container"> <!-- Tambahkan ID untuk container KPI cards -->
             <div class="column is-one-quarter">
                 <div class="box kpi-card">
                     <p class="title is-4 has-text-centered" id="mttr-value">0.00</p>
@@ -48,7 +54,7 @@ export const renderDashboardPage = async (containerElement) => {
             </div>
         </div>
 
-        <div class="columns is-multiline">
+        <div class="columns is-multiline" id="kpi-charts-container"> <!-- Tambahkan ID untuk container Charts -->
             <div class="column is-half">
                 <div class="box">
                     <h2 class="subtitle">Rasio Preventive vs Corrective</h2>
@@ -84,31 +90,49 @@ export const renderDashboardPage = async (containerElement) => {
 
 async function fetchAndCalculateKPIs() {
     try {
-        let reports = [];
-
-        // Penanganan khusus untuk filter 'material_handling'
+        // Logika untuk menampilkan pesan khusus jika Material Handling dipilih
         if (currentCategoryFilter === 'material_handling') {
-            const appContent = document.getElementById('app-content');
-            if (appContent) {
-                // Render ulang dashboard dengan pesan khusus untuk material handling
-                appContent.innerHTML = `
-                    <h1 class="title">Dashboard KPI</h1>
-                    <div class="notification is-info mt-4">
-                        <p>Dashboard ini menampilkan KPI untuk kategori selain Material Handling.</p>
-                        <p>Untuk data Material Handling, silakan gunakan fitur Log Laporan dan filter berdasarkan kategori tersebut, atau di halaman laporan servis terpisah.</p>
-                        <button class="button is-light mt-3" onclick="window.location.reload()">Refresh Dashboard</button>
-                    </div>`;
+            const kpiCardsContainer = document.getElementById('kpi-cards-container');
+            const kpiChartsContainer = document.getElementById('kpi-charts-container');
+            
+            // Sembunyikan KPI cards dan charts
+            if (kpiCardsContainer) kpiCardsContainer.style.display = 'none';
+            if (kpiChartsContainer) kpiChartsContainer.style.display = 'none';
+
+            // Tampilkan pesan khusus
+            let messageDiv = document.getElementById('material-handling-message');
+            if (!messageDiv) {
+                messageDiv = document.createElement('div');
+                messageDiv.id = 'material-handling-message';
+                messageDiv.className = 'notification is-info mt-4';
+                // Masukkan pesan di bawah filter, di atas container KPI yang disembunyikan
+                const filterContainer = document.querySelector('.field.is-grouped.is-grouped-right');
+                if (filterContainer && filterContainer.parentNode) {
+                    filterContainer.parentNode.insertBefore(messageDiv, kpiCardsContainer);
+                } else {
+                    document.getElementById('app-content')?.appendChild(messageDiv);
+                }
             }
-            // Kosongkan semua tampilan KPI
-            document.getElementById('mttr-value').innerText = 'N/A';
-            document.getElementById('mtbf-value').innerText = 'N/A';
-            document.getElementById('total-downtime-value').innerText = 'N/A';
-            document.getElementById('total-jobs-value').innerText = 'N/A';
-            if (kpiChartInstance) kpiChartInstance.destroy(); // Hancurkan chart jika ada
-            const monthlySummaryDiv = document.getElementById('monthly-summary-data');
-            if(monthlySummaryDiv) monthlySummaryDiv.innerHTML = '<p class="has-text-centered">Tidak ada data untuk kategori ini di dashboard ini.</p>';
-            return; // Hentikan fungsi
+            messageDiv.innerHTML = `
+                <p>Dashboard ini menampilkan KPI untuk kategori selain Material Handling.</p>
+                <p>Untuk data Material Handling, silakan gunakan fitur Log Laporan dan filter berdasarkan kategori tersebut, atau di halaman laporan servis terpisah.</p>
+                <button class="button is-light mt-3" onclick="window.location.reload()">Refresh Dashboard</button>
+            `;
+            messageDiv.style.display = 'block';
+
+            // Hentikan eksekusi lebih lanjut
+            return;
+        } else {
+            // Sembunyikan pesan khusus jika filter bukan material_handling
+            const messageDiv = document.getElementById('material-handling-message');
+            if (messageDiv) messageDiv.style.display = 'none';
+            const kpiCardsContainer = document.getElementById('kpi-cards-container');
+            const kpiChartsContainer = document.getElementById('kpi-charts-container');
+            if (kpiCardsContainer) kpiCardsContainer.style.display = 'flex'; // Tampilkan kembali
+            if (kpiChartsContainer) kpiChartsContainer.style.display = 'flex'; // Tampilkan kembali
         }
+
+        let reports = [];
 
         // Ambil data dari Firestore dengan filter kategori
         let queryRef = db.collection('log_laporan');
@@ -136,7 +160,7 @@ async function fetchAndCalculateKPIs() {
             const reportCreatedAt = report.createdAt && typeof report.createdAt.toDate === 'function' ? report.createdAt.toDate() : (report.createdAt ? new Date(report.createdAt) : null);
             const downtimeMinutes = typeof report.downtimeMinutes === 'number' ? report.downtimeMinutes : 0;
             const reportType = typeof report.type === 'string' ? report.type : '';
-            const machineId = typeof report.machineId === 'string' ? report.machineId : '';
+            const machineId = typeof report.machineId === 'string' ? machineId : ''; // Perbaikan: menggunakan machineId dari report, bukan variabel global
 
             if (reportType === 'Corrective') {
                 correctiveCount++;
