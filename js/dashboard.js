@@ -13,6 +13,7 @@ export const renderDashboardPage = async (containerElement) => {
                 <div class="select">
                     <select id="kpi-category-filter">
                         <option value="all_relevant">Semua Mesin (Non-Material Handling)</option>
+                        <option value="general">Mesin General</option>
                         <option value="cooling_tower">Cooling Tower</option>
                         <option value="kompresor_unit">Kompresor Unit</option>
                         <option value="material_handling">Material Handling</option>
