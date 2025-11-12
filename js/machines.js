@@ -437,8 +437,8 @@ function getAdditionalDetailsFromForm(category) {
             break;
         case 'material_handling':
             details.driveType = document.getElementById('detail-drive-type')?.value || null;
-            details.odometerKm = parseFloat(document.getElementById('detail-odometer-km')?.value) || null;
-            details.serviceIntervalKm = parseFloat(document.getElementById('detail-service-interval-km')?.value) || null;
+            details.odometerKm = parseFloat(document.getElementById('detail-odometer-km')?.value) || 0;
+            details.serviceIntervalKm = parseFloat(document.getElementById('detail-service-interval-km')?.value) || 0;
             break;
         case 'general': // General tidak memiliki additionalDetails
         default:
