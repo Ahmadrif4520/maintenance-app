@@ -6,8 +6,9 @@ let kpiChartInstance;
 let currentCategoryFilter = 'all_relevant'; // Default filter untuk dashboard
 
 export const renderDashboardPage = async (containerElement) => {
+    console.log("[Dashboard] Starting renderDashboardPage.");
     if (!containerElement) {
-        console.error("[Dashboard] Container element for dashboard not found.");
+        console.error("[Dashboard] FATAL: Container element for dashboard not found.");
         return;
     }
 
@@ -96,6 +97,36 @@ export const renderDashboardPage = async (containerElement) => {
                     </div>
                 </div>
             </div>
+            <!-- General Machine Status Card (OPSIONAL: Jika ingin menampilkan status mesin general) -->
+            <div class="column is-one-quarter">
+                <div class="box">
+                    <p class="title is-5">General</p>
+                    <p class="subtitle is-7 has-text-grey">Status Mesin</p>
+                    <div class="level is-mobile mt-3">
+                        <div class="level-item has-text-centered">
+                            <div>
+                                <span class="status-indicator is-success"></span>
+                                <p class="heading">RUN</p>
+                                <p class="title is-6" id="gen-run-count">0</p>
+                            </div>
+                        </div>
+                        <div class="level-item has-text-centered">
+                            <div>
+                                <span class="status-indicator is-warning"></span>
+                                <p class="heading">IDLE</p>
+                                <p class="title is-6" id="gen-idle-count">0</p>
+                            </div>
+                        </div>
+                        <div class="level-item has-text-centered">
+                            <div>
+                                <span class="status-indicator is-danger"></span>
+                                <p class="heading">STOP</p>
+                                <p class="title is-6" id="gen-stop-count">0</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
 
         <div class="columns is-multiline" id="kpi-cards-container">
@@ -151,45 +182,52 @@ export const renderDashboardPage = async (containerElement) => {
         categoryFilterElement.addEventListener('change', (event) => {
             currentCategoryFilter = event.target.value;
             fetchAndCalculateKPIs();
+            fetchAndRenderMachineStatus(); // Panggil ulang saat filter berubah
         });
     }
 
     await fetchAndCalculateKPIs();
     await fetchAndRenderMachineStatus(); // Panggil fungsi baru ini saat dashboard dimuat
+    console.log("[Dashboard] Finished renderDashboardPage.");
 };
 
 async function fetchAndCalculateKPIs() {
+    console.log("[Dashboard] Starting fetchAndCalculateKPIs.");
     try {
         const materialHandlingMessage = document.getElementById('material-handling-message');
         const kpiCardsContainer = document.getElementById('kpi-cards-container');
         const kpiChartsContainer = document.getElementById('kpi-charts-container');
-        const machineStatusCardsContainer = document.getElementById('machine-status-cards-container'); // Ambil container status mesin
+        const machineStatusCardsContainer = document.getElementById('machine-status-cards-container');
 
         if (currentCategoryFilter === 'material_handling') {
+            console.log("[Dashboard] Filter is material_handling. Hiding KPI sections.");
             if (materialHandlingMessage) materialHandlingMessage.style.display = 'block';
             if (kpiCardsContainer) kpiCardsContainer.style.display = 'none';
             if (kpiChartsContainer) kpiChartsContainer.style.display = 'none';
-            if (machineStatusCardsContainer) machineStatusCardsContainer.style.display = 'none'; // Sembunyikan juga status mesin
+            if (machineStatusCardsContainer) machineStatusCardsContainer.style.display = 'none';
             
-            document.getElementById('mttr-value').innerText = 'N/A';
-            document.getElementById('mtbf-value').innerText = 'N/A';
-            document.getElementById('total-downtime-value').innerText = 'N/A';
-            document.getElementById('total-jobs-value').innerText = 'N/A';
+            // Reset KPI values
+            if (document.getElementById('mttr-value')) document.getElementById('mttr-value').innerText = 'N/A';
+            if (document.getElementById('mtbf-value')) document.getElementById('mtbf-value').innerText = 'N/A';
+            if (document.getElementById('total-downtime-value')) document.getElementById('total-downtime-value').innerText = 'N/A';
+            if (document.getElementById('total-jobs-value')) document.getElementById('total-jobs-value').innerText = 'N/A';
             if (kpiChartInstance) kpiChartInstance.destroy();
             const monthlySummaryDiv = document.getElementById('monthly-summary-data');
             if(monthlySummaryDiv) monthlySummaryDiv.innerHTML = '<p class="has-text-centered">Tidak ada data untuk kategori ini di dashboard ini.</p>';
 
             return;
         } else {
+            console.log("[Dashboard] Filter is NOT material_handling. Showing KPI sections.");
             if (materialHandlingMessage) materialHandlingMessage.style.display = 'none';
             if (kpiCardsContainer) kpiCardsContainer.style.display = 'flex';
             if (kpiChartsContainer) kpiChartsContainer.style.display = 'flex';
-            if (machineStatusCardsContainer) machineStatusCardsContainer.style.display = 'flex'; // Tampilkan kembali status mesin
+            if (machineStatusCardsContainer) machineStatusCardsContainer.style.display = 'flex';
 
-            document.getElementById('mttr-value').innerText = '0.00';
-            document.getElementById('mtbf-value').innerText = '0.00';
-            document.getElementById('total-downtime-value').innerText = '0.00';
-            document.getElementById('total-jobs-value').innerText = '0';
+            // Reset placeholder di elemen KPI cards
+            if (document.getElementById('mttr-value')) document.getElementById('mttr-value').innerText = '0.00';
+            if (document.getElementById('mtbf-value')) document.getElementById('mtbf-value').innerText = '0.00';
+            if (document.getElementById('total-downtime-value')) document.getElementById('total-downtime-value').innerText = '0.00';
+            if (document.getElementById('total-jobs-value')) document.getElementById('total-jobs-value').innerText = '0';
             const monthlySummaryDiv = document.getElementById('monthly-summary-data');
             if(monthlySummaryDiv) monthlySummaryDiv.innerHTML = '<progress class="progress is-small is-info mt-6" max="100">Loading...</progress>';
         }
@@ -199,12 +237,15 @@ async function fetchAndCalculateKPIs() {
         let queryRef = db.collection('log_laporan');
         if (currentCategoryFilter === 'all_relevant') {
             queryRef = queryRef.where('machineCategory', 'in', ['general', 'cooling_tower', 'kompresor_unit']);
+            console.log("[Dashboard] Querying all_relevant categories.");
         } else {
             queryRef = queryRef.where('machineCategory', '==', currentCategoryFilter);
+            console.log(`[Dashboard] Querying category: ${currentCategoryFilter}.`);
         }
         
         const reportsSnapshot = await queryRef.get();
         reports = reportsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        console.log(`[Dashboard] Fetched ${reports.length} reports for KPIs.`);
 
 
         let totalCorrectiveDowntime = 0;
@@ -266,10 +307,10 @@ async function fetchAndCalculateKPIs() {
         }
         const overallMTBFHours = mtbfMachineCount > 0 ? (totalMTBFDurationMs / mtbfMachineCount) / (1000 * 60 * 60) : 0;
 
-        document.getElementById('mttr-value').innerText = mttr.toFixed(2);
-        document.getElementById('mtbf-value').innerText = overallMTBFHours.toFixed(2);
-        document.getElementById('total-downtime-value').innerText = totalDowntimeHours.toFixed(2);
-        document.getElementById('total-jobs-value').innerText = totalJobs;
+        if (document.getElementById('mttr-value')) document.getElementById('mttr-value').innerText = mttr.toFixed(2);
+        if (document.getElementById('mtbf-value')) document.getElementById('mtbf-value').innerText = overallMTBFHours.toFixed(2);
+        if (document.getElementById('total-downtime-value')) document.getElementById('total-downtime-value').innerText = totalDowntimeHours.toFixed(2);
+        if (document.getElementById('total-jobs-value')) document.getElementById('total-jobs-value').innerText = totalJobs;
 
         renderChart(preventiveCount, correctiveCount);
 
@@ -295,31 +336,32 @@ async function fetchAndCalculateKPIs() {
                 monthlySummaryDiv.innerHTML = '<p class="has-text-centered">Tidak ada data ringkasan bulanan untuk ditampilkan.</p>';
             }
         }
+        console.log("[Dashboard] Finished fetchAndCalculateKPIs successfully.");
 
     } catch (error) {
-        console.error("Error fetching or calculating KPIs:", error);
-        const mttrValue = document.getElementById('mttr-value');
-        if (mttrValue) mttrValue.innerText = 'Error';
-        const mtbfValue = document.getElementById('mtbf-value');
-        if (mtbfValue) mtbfValue.innerText = 'Error';
-        const totalDowntimeValue = document.getElementById('total-downtime-value');
-        if (totalDowntimeValue) totalDowntimeValue.innerText = 'Error';
-        const totalJobsValue = document.getElementById('total-jobs-value');
-        if (totalJobsValue) totalJobsValue.innerText = 'Error';
+        console.error("[Dashboard] Error fetching or calculating KPIs:", error);
+        // Display error in UI elements if they exist
+        const elementsToUpdate = ['mttr-value', 'mtbf-value', 'total-downtime-value', 'total-jobs-value'];
+        elementsToUpdate.forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.innerText = 'Error';
+        });
 
         const monthlySummaryDiv = document.getElementById('monthly-summary-data');
         if (monthlySummaryDiv) monthlySummaryDiv.innerHTML = `<p class="has-text-danger">Gagal memuat data: ${error.message}</p>`;
 
         if (kpiChartInstance) kpiChartInstance.destroy();
         const ctx = document.getElementById('kpi-chart');
-        if (ctx) ctx.innerHTML = `<p class="has-text-danger">Gagal memuat grafik: ${error.message}</p>`;
+        if (ctx) {
+            ctx.parentNode.innerHTML = `<p class="has-text-danger">Gagal memuat grafik: ${error.message}</p>`; // Update parent of canvas
+        }
     }
 }
 
 function renderChart(preventiveCount, correctiveCount) {
     const ctx = document.getElementById('kpi-chart');
     if (!ctx) {
-        console.warn("[Dashboard] KPI Chart canvas element not found.");
+        console.warn("[Dashboard] KPI Chart canvas element not found for rendering.");
         return;
     }
 
@@ -366,11 +408,12 @@ function renderChart(preventiveCount, correctiveCount) {
 
 // Fungsi baru untuk mengambil dan menampilkan status mesin
 async function fetchAndRenderMachineStatus() {
-    const categoriesToMonitor = ['cooling_tower', 'kompresor_unit', 'general']; // Tambahkan 'general'
+    console.log("[Dashboard] Starting fetchAndRenderMachineStatus.");
+    const categoriesToMonitor = ['cooling_tower', 'kompresor_unit', 'general'];
     const machineStatusCounts = {
         cooling_tower: { RUN: 0, IDLE: 0, STOP: 0 },
         kompresor_unit: { RUN: 0, IDLE: 0, STOP: 0 },
-        general: { RUN: 0, IDLE: 0, STOP: 0 } // Inisialisasi untuk 'general'
+        general: { RUN: 0, IDLE: 0, STOP: 0 }
     };
 
     try {
@@ -378,40 +421,57 @@ async function fetchAndRenderMachineStatus() {
                                  .where('category', 'in', categoriesToMonitor)
                                  .get();
         
+        console.log(`[Dashboard] Fetched ${snapshot.size} machines for status check.`);
+        if (snapshot.empty) {
+            console.log("[Dashboard] No machines found in monitored categories.");
+        }
+
         snapshot.forEach(doc => {
             const machine = doc.data();
             const category = machine.category;
             const status = machine.status;
+            console.log(`[Dashboard] Processing machine: ${machine.name}, Category: ${category}, Status: ${status}`);
 
             if (machineStatusCounts[category] && machineStatusCounts[category][status]) {
                 machineStatusCounts[category][status]++;
-            } else if (machineStatusCounts[category] && !machineStatusCounts[category][status]) {
-                // Handle status other than RUN, IDLE, STOP, default to STOP count for simplicity or new status field
-                // For now, let's just make sure new statuses don't cause error, ignore if not one of the 3
+            } else {
+                console.warn(`[Dashboard] Unexpected category (${category}) or status (${status}) for machine: ${machine.name}`);
             }
         });
 
         // Update UI for Cooling Tower
-        document.getElementById('ct-run-count').innerText = machineStatusCounts.cooling_tower.RUN;
-        document.getElementById('ct-idle-count').innerText = machineStatusCounts.cooling_tower.IDLE;
-        document.getElementById('ct-stop-count').innerText = machineStatusCounts.cooling_tower.STOP;
+        const ctRun = document.getElementById('ct-run-count');
+        if (ctRun) ctRun.innerText = machineStatusCounts.cooling_tower.RUN; else console.error("[Dashboard] ct-run-count not found.");
+        const ctIdle = document.getElementById('ct-idle-count');
+        if (ctIdle) ctIdle.innerText = machineStatusCounts.cooling_tower.IDLE; else console.error("[Dashboard] ct-idle-count not found.");
+        const ctStop = document.getElementById('ct-stop-count');
+        if (ctStop) ctStop.innerText = machineStatusCounts.cooling_tower.STOP; else console.error("[Dashboard] ct-stop-count not found.");
 
         // Update UI for Kompresor Unit
-        document.getElementById('ku-run-count').innerText = machineStatusCounts.kompresor_unit.RUN;
-        document.getElementById('ku-idle-count').innerText = machineStatusCounts.kompresor_unit.IDLE;
-        document.getElementById('ku-stop-count').innerText = machineStatusCounts.kompresor_unit.STOP;
+        const kuRun = document.getElementById('ku-run-count');
+        if (kuRun) kuRun.innerText = machineStatusCounts.kompresor_unit.RUN; else console.error("[Dashboard] ku-run-count not found.");
+        const kuIdle = document.getElementById('ku-idle-count');
+        if (kuIdle) kuIdle.innerText = machineStatusCounts.kompresor_unit.IDLE; else console.error("[Dashboard] ku-idle-count not found.");
+        const kuStop = document.getElementById('ku-stop-count');
+        if (kuStop) kuStop.innerText = machineStatusCounts.kompresor_unit.STOP; else console.error("[Dashboard] ku-stop-count not found.");
 
-        // Jika Anda ingin menampilkan General juga, tambahkan card baru di HTML
-        // Untuk saat ini, kita hanya menghitungnya di backend
+        // Update UI for General
+        const genRun = document.getElementById('gen-run-count');
+        if (genRun) genRun.innerText = machineStatusCounts.general.RUN; else console.error("[Dashboard] gen-run-count not found.");
+        const genIdle = document.getElementById('gen-idle-count');
+        if (genIdle) genIdle.innerText = machineStatusCounts.general.IDLE; else console.error("[Dashboard] gen-idle-count not found.");
+        const genStop = document.getElementById('gen-stop-count');
+        if (genStop) genStop.innerText = machineStatusCounts.general.STOP; else console.error("[Dashboard] gen-stop-count not found.");
+
+        console.log("[Dashboard] Finished fetchAndRenderMachineStatus successfully.");
 
     } catch (error) {
-        console.error("[Dashboard] Error fetching machine status:", error);
+        console.error("[Dashboard] Error in fetchAndRenderMachineStatus:", error);
         // Display error or 'N/A' on UI for status counts
-        ['ct-run-count', 'ct-idle-count', 'ct-stop-count', 'ku-run-count', 'ku-idle-count', 'ku-stop-count'].forEach(id => {
+        const elementsToUpdate = ['ct-run-count', 'ct-idle-count', 'ct-stop-count', 'ku-run-count', 'ku-idle-count', 'ku-stop-count', 'gen-run-count', 'gen-idle-count', 'gen-stop-count'];
+        elementsToUpdate.forEach(id => {
             const el = document.getElementById(id);
             if (el) el.innerText = 'N/A';
         });
     }
 }
-
-
