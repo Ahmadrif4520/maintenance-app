@@ -10,16 +10,8 @@ const SERVICE_OVERDUE_THRESHOLD_PERCENT = 100;
 export const updateNotificationBadge = (count) => {
     const badge = document.getElementById('unread-notifications-badge');
     if (badge) {
-        // Fetch current count to ensure it's not a negative number
-        let currentCount = parseInt(badge.textContent) || 0;
-        if (count === -1) { // Special value to decrement
-            currentCount = Math.max(0, currentCount - 1);
-        } else if (count >= 0) {
-            currentCount = count;
-        }
-
-        if (currentCount > 0) {
-            badge.textContent = currentCount;
+        if (count > 0) {
+            badge.textContent = count;
             badge.style.display = 'inline-block';
         } else {
             badge.style.display = 'none';
@@ -40,7 +32,7 @@ export const setupNotificationListener = () => {
     }
 
     const currentUser = auth.currentUser;
-    if (!currentUser || !currentUser.uid) { // Pastikan currentUser dan UID-nya ada
+    if (!currentUser || !currentUser.uid) {
         console.warn("[Notifications] No current user or user UID, skipping notification listener setup.");
         return;
     }
@@ -49,28 +41,34 @@ export const setupNotificationListener = () => {
     machinesUnsubscribe = db.collection('machines').onSnapshot(async (snapshot) => {
         console.log("[Notifications] Machine data changed. Checking service status...");
         snapshot.forEach(doc => {
-            const machine = { docId: doc.id, ...doc.data() }; // Ambil ID dokumen Firestore sebagai docId
+            const machine = { docId: doc.id, ...doc.data() };
             checkMachineServiceStatus(machine, currentUser.uid);
         });
     }, (error) => {
         console.error("[Notifications] Error listening to machines for service checks:", error);
     });
 
-    // --- Listener untuk menampilkan notifikasi UI ---
+    // --- Listener untuk menampilkan notifikasi UI (toast dan badge) ---
+    // PENTING: Firestore listener secara otomatis akan memperbarui badge saat isRead berubah,
+    // jadi kita tidak perlu secara manual mengurangi badge di markNotificationAsRead.
     notificationsUnsubscribe = db.collection('notifications')
         .where('toUserId', '==', currentUser.uid)
         .where('isRead', '==', false)
         .orderBy('createdAt', 'desc')
-        .limit(5)
-        .onSnapshot(async (snapshot) => {
+        .onSnapshot(async (snapshot) => { // Tanpa limit agar mendapatkan hitungan total yang belum dibaca
             const unreadCount = snapshot.size;
             updateNotificationBadge(unreadCount);
+            
+            // Hanya tampilkan toast untuk notifikasi BARU yang ditambahkan
             snapshot.docChanges().forEach(change => {
                 if (change.type === 'added') {
                     const notification = change.doc.data();
                     const notificationId = change.doc.id;
-                    console.log("[Notifications] New unread notification:", notification.message);
-                    displayNotificationToast(notification.message, notification.type, notificationId);
+                    // Cek apakah toast untuk notifikasi ini sudah ada, untuk menghindari duplikasi
+                    if (!document.getElementById(`toast-${notificationId}`)) {
+                        console.log("[Notifications] New unread notification:", notification.message);
+                        displayNotificationToast(notification.message, notification.type, notificationId);
+                    }
                 }
             });
         }, (error) => {
@@ -80,7 +78,7 @@ export const setupNotificationListener = () => {
     const notificationsDropdownToggle = document.getElementById('notifications-dropdown-toggle');
     if (notificationsDropdownToggle) {
         notificationsDropdownToggle.addEventListener('click', async (event) => {
-            event.preventDefault(); // Mencegah navigasi atau event lain
+            event.preventDefault();
             await displayNotificationsDropdown();
         });
     }
@@ -110,12 +108,12 @@ export const cleanupNotificationListenersAndUI = () => {
 
 
 async function checkMachineServiceStatus(machine, currentUserId) {
-    const docId = machine.docId; // ID dokumen Firestore
-    const machineIdCustom = machine.machineId; // ID kustom dari field 'machineId'
+    const docId = machine.docId;
+    const machineIdCustom = machine.machineId;
     const machineName = machine.name;
     const machineCategory = machine.category;
 
-    if (!docId || !currentUserId || !machineIdCustom) { // Validasi docId juga
+    if (!docId || !currentUserId || !machineIdCustom) {
         console.warn("[Notifications] Missing docId, machineIdCustom, or currentUserId. Skipping service status check for machine:", machine);
         return;
     }
@@ -167,23 +165,23 @@ async function checkMachineServiceStatus(machine, currentUserId) {
 }
 
 async function sendServiceNotification(docId, machineIdCustom, machineName, message, type, toUserId, threshold, currentVal, intervalVal, thresholdField) {
-    if (!toUserId) { // Pengecekan ekstra untuk toUserId
+    if (!toUserId) {
         console.error("[Notifications] sendServiceNotification called with undefined toUserId.");
         return;
     }
 
     const existingNotificationsSnapshot = await db.collection('notifications')
-        .where('machineId', '==', docId) // Gunakan docId sebagai machineId di notifikasi
+        .where('machineId', '==', docId)
         .where('type', '==', type)
         .where('isRead', '==', false)
-        .where('toUserId', '==', toUserId) // toUserId seharusnya sudah valid di sini
+        .where('toUserId', '==', toUserId)
         .limit(1)
         .get();
 
     if (existingNotificationsSnapshot.empty) {
         const notificationData = {
-            machineId: docId, // Simpan docId mesin yang memicu
-            machineIdCustom: machineIdCustom, // Simpan juga ID kustom jika perlu untuk tampilan
+            machineId: docId,
+            machineIdCustom: machineIdCustom,
             machineName: machineName,
             message: message,
             type: type,
@@ -216,6 +214,7 @@ function displayNotificationToast(message, type, notificationId) {
     }
 
     const toast = document.createElement('div');
+    toast.id = `toast-${notificationId}`; // Memberikan ID unik pada setiap toast
     toast.className = `notification is-${type === 'critical' ? 'danger' : (type === 'warning' ? 'warning' : 'info')} is-light animated fadeInRight`;
     toast.style.position = 'relative';
     toast.style.marginBottom = '10px';
@@ -230,26 +229,38 @@ function displayNotificationToast(message, type, notificationId) {
     container.appendChild(toast);
 
     setTimeout(() => {
-        if (toast.parentNode === container) {
-            toast.classList.remove('fadeInRight');
-            toast.classList.add('fadeOutRight');
-            toast.addEventListener('animationend', () => toast.remove());
+        const currentToast = document.getElementById(`toast-${notificationId}`);
+        if (currentToast && currentToast.parentNode === container) { // Pastikan toast masih ada dan di containernya
+            currentToast.classList.remove('fadeInRight');
+            currentToast.classList.add('fadeOutRight');
+            currentToast.addEventListener('animationend', () => currentToast.remove());
         }
     }, 5000);
 }
 
-// markNotificationAsRead sudah didefinisikan di global scope di sini
+// Global function agar bisa diakses dari inline onclick di toast
 window.markNotificationAsRead = async (notificationId, toastElement) => {
     try {
         await db.collection('notifications').doc(notificationId).update({ isRead: true });
         console.log(`[Notifications] Notification ${notificationId} marked as read.`);
+        
+        // Hapus toast dari DOM
         if (toastElement && toastElement.parentNode) {
             toastElement.classList.remove('fadeInRight');
             toastElement.classList.add('fadeOutRight');
+            // Tambahkan listener untuk menghapus setelah animasi selesai
             toastElement.addEventListener('animationend', () => toastElement.remove());
+        } else {
+            // Jika toastElement tidak valid, coba cari berdasarkan ID
+            const specificToast = document.getElementById(`toast-${notificationId}`);
+            if (specificToast) {
+                specificToast.classList.remove('fadeInRight');
+                specificToast.classList.add('fadeOutRight');
+                specificToast.addEventListener('animationend', () => specificToast.remove());
+            }
         }
         // Badge akan diupdate secara otomatis oleh snapshot listener `notificationsUnsubscribe`
-        // Jadi tidak perlu updateNotificationBadge(-1) secara manual
+        // karena status isRead berubah di Firestore
     } catch (error) {
         console.error("[Notifications] Error marking notification as read:", error);
         alert("Gagal menandai notifikasi sebagai sudah dibaca.");
@@ -274,8 +285,8 @@ async function displayNotificationsDropdown() {
         dropdownContent.style.border = '1px solid #dbdbdb';
         dropdownContent.style.borderRadius = '4px';
         dropdownContent.style.boxShadow = '0 2px 3px rgba(10, 10, 10, 0.1), 0 0 0 1px rgba(10, 10, 10, 0.1)';
-        dropdownContent.style.maxHeight = '400px'; // Batasi tinggi
-        dropdownContent.style.overflowY = 'auto'; // Tambahkan scroll
+        dropdownContent.style.maxHeight = '400px';
+        dropdownContent.style.overflowY = 'auto';
 
         const notificationsDropdownToggle = document.getElementById('notifications-dropdown-toggle');
         if (notificationsDropdownToggle && notificationsDropdownToggle.parentNode) {
@@ -286,7 +297,6 @@ async function displayNotificationsDropdown() {
         }
     }
     
-    // Toggle visibilitas
     if (dropdownContent.style.display === 'block') {
         dropdownContent.style.display = 'none';
         return;
@@ -315,10 +325,11 @@ async function displayNotificationsDropdown() {
             const formattedTime = createdAtDate ? createdAtDate.toLocaleString('id-ID', { dateStyle: 'short', timeStyle: 'short' }) : 'N/A';
             
             const itemClass = notification.isRead ? 'has-text-grey-light' : 'has-text-weight-bold';
-            const actionButton = notification.isRead ? '' : `<button class="button is-small is-primary is-light is-pulled-right" onclick="window.markNotificationAsRead('${doc.id}', this.closest('.dropdown-item'))">Tandai Dibaca</button>`;
+            const actionButton = notification.isRead ? '' : `<button class="button is-small is-primary is-light is-pulled-right" onclick="window.markNotificationAsRead('${doc.id}', null)">Tandai Dibaca</button>`;
+            // Ganti 'this.closest(.dropdown-item)' dengan null karena kita tidak ingin menghapus item dropdown
 
             notificationsHtml += `
-                <div class="dropdown-item ${itemClass}">
+                <div class="dropdown-item ${itemClass}" id="dropdown-item-${doc.id}">
                     <p class="is-size-7 has-text-grey">${formattedTime}</p>
                     <p>${notification.message}</p>
                     ${actionButton}
