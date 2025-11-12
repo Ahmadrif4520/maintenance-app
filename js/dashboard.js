@@ -413,3 +413,5 @@ async function fetchAndRenderMachineStatus() {
         });
     }
 }
+
+
