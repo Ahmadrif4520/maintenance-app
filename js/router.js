@@ -4,20 +4,23 @@ import { renderLoginPage, renderRegisterPage, logout } from './auth.js';
 import { renderDashboardPage } from './dashboard.js';
 import { renderReportsPage } from './reports.js';
 import { renderMachinesPage, renderMachineDetailPage } from './machines.js';
-import { setupNotificationListener } from './notifications.js';
-import { renderMaterialHandlingPage } from './material_handling.js'; // PASTIKAN INI DIIMPOR
+// Import fungsi setupNotificationListener dan fungsi cleanup dari notifications.js
+import { setupNotificationListener, updateNotificationBadge, machinesUnsubscribe, notificationsUnsubscribe } from './notifications.js';
+import { renderMaterialHandlingPage } from './material_handling.js';
 
 console.log("[Router] Router module started loading.");
 
 const appContent = document.getElementById('app-content');
 const navLinks = document.getElementById('nav-links');
 const authButtons = document.getElementById('auth-buttons');
-const notificationArea = document.getElementById('notification-area');
+// Tidak lagi menggunakan #notification-area untuk toggling display,
+// karena sekarang ada #notification-toast-container yang fixed.
+// Namun, kita tetap butuh elemen untuk badge notifikasi di navbar.
+
 
 console.log("[Router] App content element:", appContent);
 console.log("[Router] Nav links element:", navLinks);
 console.log("[Router] Auth buttons element:", authButtons);
-console.log("[Router] Notification area element:", notificationArea);
 
 
 // Fungsi untuk memuat konten halaman berdasarkan path URL
@@ -120,8 +123,8 @@ const loadPage = async (path) => {
                 if (user) navigateTo('/login');
             }
             break;
-        case '/material-handling-reports': // Rute baru untuk material handling
-            if (user && (userRole === 'admin' || userRole === 'technician')) { // Izinkan admin/teknisi melihat
+        case '/material-handling-reports':
+            if (user && (userRole === 'admin' || userRole === 'technician')) {
                 console.log("[Router] User authorized for Material Handling Reports. Rendering page.");
                 await renderMaterialHandlingPage(appContent);
             } else {
@@ -211,11 +214,13 @@ auth.onAuthStateChanged(async (user) => {
             `;
         }
         
-        if (notificationArea && setupNotificationListener) {
-            notificationArea.style.display = 'block';
-            setupNotificationListener();
-        } else if (notificationArea) {
-             console.warn("[Router] setupNotificationListener not found. Skipping notification setup.");
+        // Setup notifikasi in-app
+        // Pastikan notification-toast-container ada di index.html
+        if (document.getElementById('notification-toast-container') && setupNotificationListener) {
+            console.log("[Router] Initializing notification listeners.");
+            setupNotificationListener(); // Panggil fungsi setupNotificationListener dari notifications.js
+        } else {
+             console.warn("[Router] Notification toast container or setupNotificationListener not found. Skipping notification setup.");
         }
 
 
@@ -242,10 +247,31 @@ auth.onAuthStateChanged(async (user) => {
         if (navLinks) {
             navLinks.innerHTML = '';
         }
-        if (notificationArea) {
-             notificationArea.style.display = 'none';
+
+        // Cleanup notifikasi saat logout
+        console.log("[Router] Cleaning up notification listeners.");
+        if (machinesUnsubscribe) { // Pastikan variabel global ada dan merupakan fungsi
+            machinesUnsubscribe();
+            // Penting: Variabel `machinesUnsubscribe` ada di notifications.js,
+            // jadi kita tidak bisa langsung mengubahnya dari sini.
+            // Notifications.js harus mengelola state unsubscribe-nya sendiri.
+            // Namun, karena `notifications.js` dieksekusi ulang saat login,
+            // listener lama akan di-cleanup oleh `setupNotificationListener` itu sendiri.
+            // Untuk memastikan badge bersih:
+            updateNotificationBadge(0);
         }
-        
+        if (notificationsUnsubscribe) {
+            notificationsUnsubscribe();
+            // updateNotificationBadge(0); // Ini sudah dihandle di atas
+        }
+        const notificationsDropdownContent = document.getElementById('notifications-dropdown-content');
+        if(notificationsDropdownContent) notificationsDropdownContent.style.display = 'none'; // Sembunyikan dropdown
+
+        // Jika ada toast yang masih muncul, hapus
+        const toastContainer = document.getElementById('notification-toast-container');
+        if (toastContainer) toastContainer.innerHTML = '';
+
+
         console.log("[Router] Navigating to /login for logged-out user.");
         navigateTo('/login');
     }
