@@ -180,6 +180,8 @@ export const fetchAndRenderMachineStatus = async () => {
 };
 
 
+// js/dashboard.js: Ganti seluruh isi dari export const renderDashboardPage = async (containerElement) => { ... }
+
 export const renderDashboardPage = async (containerElement) => {
     console.log("[Dashboard][renderDashboardPage] Starting renderDashboardPage.");
     if (!containerElement) {
@@ -220,28 +222,42 @@ export const renderDashboardPage = async (containerElement) => {
 
             <div class="column is-half">
                 <div class="box">
-                    <h2 class="subtitle">Ringkasan Laporan Bulan Ini</h2>
-                    <div class="columns is-mobile has-text-centered">
-                        <div class="column">
+                    <h2 class="subtitle">Metrik Kinerja & Ringkasan Bulanan</h2>
+                    <div class="columns is-multiline is-mobile has-text-centered">
+                        <div class="column is-half">
                             <div class="kpi-card">
-                                <p class="title is-3" id="monthly-report-count">0</p>
-                                <p class="label">Total Laporan</p>
+                                <p class="title is-4" id="monthly-report-count">0</p>
+                                <p class="label">Total Pekerjaan</p>
                             </div>
                         </div>
-                        <div class="column">
+                        <div class="column is-half">
                             <div class="kpi-card">
-                                <p class="title is-3" id="monthly-downtime">0 Menit</p>
+                                <p class="title is-4" id="monthly-downtime">0 Menit</p>
                                 <p class="label">Total Downtime</p>
                             </div>
                         </div>
+                        <div class="column is-half">
+                            <div class="kpi-card">
+                                <p class="title is-4" id="mttr-value">N/A</p>
+                                <p class="label">MTTR (Jam)</p>
+                            </div>
+                        </div>
+                        <div class="column is-half">
+                            <div class="kpi-card">
+                                <p class="title is-4" id="mtbf-value">N/A</p>
+                                <p class="label">MTBF (Jam)</p>
+                            </div>
+                        </div>
                     </div>
-                    <p class="has-text-grey is-size-7 mt-3">Laporan yang tercatat sejak tanggal 1 bulan ini.</p>
+                    <p class="has-text-grey is-size-7 mt-3">Metrik dihitung dari data laporan bulan ini.</p>
                 </div>
             </div>
-        </div>
+            </div>
         
         <progress class="progress is-small is-primary is-hidden" max="100" id="dashboard-progress"></progress>
     `;
+    
+    // ... (Logika setup filter, listeners, dan pemanggilan fungsi lainnya sama seperti sebelumnya)
 
     // 1. Setup Filter
     const filterEl = document.getElementById('kpi-category-filter');
@@ -251,14 +267,11 @@ export const renderDashboardPage = async (containerElement) => {
         filterEl.value = currentCategoryFilter; // Set nilai awal
         filterEl.addEventListener('change', (e) => {
             currentCategoryFilter = e.target.value;
-            // Tampilkan atau sembunyikan pesan material handling
             if (currentCategoryFilter === 'material_handling') {
                 mhMessageEl.style.display = 'block';
-                // Jika Material Handling dipilih, inisialisasi chart dengan 0 (karena tidak termasuk KPI umum)
                 renderChart({}); 
             } else {
                 mhMessageEl.style.display = 'none';
-                // Muat ulang data KPI dan Summary
                 fetchAndRenderKPI();
                 fetchAndRenderMonthlySummary();
             }
@@ -266,21 +279,24 @@ export const renderDashboardPage = async (containerElement) => {
     }
 
     // 2. Muat Data Awal
-    // Panggil fungsi status mesin (sekarang sudah kosong/diabaikan)
+    // fetchAndRenderMachineStatus() sekarang kosong, tapi tetap dipanggil
     fetchAndRenderMachineStatus(); 
     
-    // Muat data KPI dan Summary (Jika bukan Material Handling yang dipilih)
     if (currentCategoryFilter !== 'material_handling') {
         fetchAndRenderKPI();
-        fetchAndRenderMonthlySummary();
+        fetchAndRenderMonthlySummary(); // <-- Ini akan mengisi data MTTR/MTBF jika fungsinya lengkap
     }
     
+    // ... (Setup listener real-time)
+
     // Setup listener real-time untuk data laporan (jika ada)
     if (dashboardUnsubscribe) dashboardUnsubscribe();
     dashboardUnsubscribe = db.collection('reports')
         .onSnapshot(() => {
             console.log("[Dashboard] Report data changed. Updating summary.");
-            fetchAndRenderMonthlySummary();
+            if (currentCategoryFilter !== 'material_handling') {
+                fetchAndRenderMonthlySummary();
+            }
         });
 
     // Setup listener real-time untuk data mesin (jika ada)
@@ -289,7 +305,6 @@ export const renderDashboardPage = async (containerElement) => {
         if (currentCategoryFilter !== 'material_handling') {
             fetchAndRenderKPI();
         }
-        // Tidak perlu memanggil fetchAndRenderMachineStatus() lagi
     });
 
     console.log("[Dashboard][renderDashboardPage] Finished renderDashboardPage.");
