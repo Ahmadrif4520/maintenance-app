@@ -5,7 +5,7 @@ let kpiChartInstance;
 let currentCategoryFilter = 'all_relevant';
 let dashboardUnsubscribe; // Untuk listener real-time dashboard
 
-// Fungsi untuk me-render Pie Chart (Preventive vs Corrective) - TIDAK DIUBAH
+// Fungsi untuk me-render Pie Chart (Preventive vs Corrective) - LOGIKA AMAN
 const renderChart = (data) => {
     const ctx = document.getElementById('kpi-chart')?.getContext('2d');
     if (!ctx) return;
@@ -72,7 +72,7 @@ const renderChart = (data) => {
     console.log("[Dashboard][renderChart] Pie Chart (Preventive vs Corrective) rendered.");
 };
 
-// Fungsi untuk mengambil data Pie Chart (Preventive vs Corrective) - TIDAK DIUBAH
+// Fungsi untuk mengambil data Pie Chart (Preventive vs Corrective) - LOGIKA AMAN
 export const fetchAndRenderKPI = async () => {
     console.log(`[Dashboard][fetchAndRenderKPI] Fetching report data for Preventive vs Corrective Pie Chart.`);
     try {
@@ -102,21 +102,20 @@ export const fetchAndRenderKPI = async () => {
 }
 
 
-// Fungsi untuk mengambil dan me-render Ringkasan Laporan Bulanan & Metrik (MTTR, MTBF, Downtime, Total Pekerjaan) - TIDAK DIUBAH
+// Fungsi untuk mengambil dan me-render Metrik (MTTR, MTBF, Downtime, Total Pekerjaan) - LOGIKA AMAN
 export const fetchAndRenderMonthlySummary = async () => {
     try {
         const today = new Date();
         const firstDayOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
         
-        // Query Laporan dari bulan ini
         const reportsSnapshot = await db.collection('reports')
             .where('createdAt', '>=', firstDayOfMonth)
             .orderBy('createdAt', 'desc')
             .get();
 
         let totalDowntimeMinutes = 0;
-        let totalReports = 0; // Total Pekerjaan (Kerusakan + Maintenance)
-        let totalHoursInMonth = 720; // 30 hari * 24 jam (asumsi 30 hari)
+        let totalReports = 0; 
+        let totalHoursInMonth = 720; 
 
         reportsSnapshot.forEach(doc => {
             const report = doc.data();
@@ -133,19 +132,17 @@ export const fetchAndRenderMonthlySummary = async () => {
         let mttrHours = 'N/A';
         let mtbfHours = 'N/A';
         
-        // 1. MTTR (Mean Time To Repair)
         if (totalReports > 0) {
             mttrHours = (totalDowntimeHours / totalReports).toFixed(2); 
         }
 
-        // 2. MTBF (Mean Time Between Failures)
         const uptimeHours = totalHoursInMonth - totalDowntimeHours; 
         if (totalReports > 0) {
             mtbfHours = (uptimeHours / totalReports).toFixed(2);
         }
         // *** AKHIR KALKULASI METRIK ***
 
-        // Update UI
+        // Update UI (Memastikan ID yang digunakan sesuai dengan HTML di bawah)
         const reportCountEl = document.getElementById('monthly-report-count');
         const downtimeEl = document.getElementById('monthly-downtime');
         const mttrEl = document.getElementById('mttr-value');
@@ -160,14 +157,18 @@ export const fetchAndRenderMonthlySummary = async () => {
 
     } catch (error) {
         console.error("[Dashboard][fetchAndRenderMonthlySummary] Error fetching monthly summary:", error);
+        // Jika error, atur semua ke N/A
+        ['monthly-report-count', 'monthly-downtime', 'mttr-value', 'mtbf-value'].forEach(id => {
+            const el = document.getElementById(id);
+            if(el) el.innerText = 'N/A';
+        });
     }
 }
 
 
-// FUNGSI INI DIKOSONGKAN AGAR TIDAK MENGHASILKAN ERROR (SESUAI PERMINTAAN)
+// FUNGSI INI DIKOSONGKAN (SESUAI PERMINTAAN)
 export const fetchAndRenderMachineStatus = async () => {
     console.log("[Dashboard][fetchAndRenderMachineStatus] Logic disabled. Machine status cards removed from dashboard.");
-    // Logika asli di sini telah dihapus.
 };
 
 
@@ -178,7 +179,7 @@ export const renderDashboardPage = async (containerElement) => {
         return;
     }
 
-    // --- TEMPLATE DASHBOARD (Status Card Mesin Dihapus, KPI Lain Dijaga Utuh) ---
+    // --- TEMPLATE DASHBOARD (KARTU STATUS MESIN DIHAPUS, KPI DIJAGA UTUH DALAM KOTAK INDIVIDUAL) ---
     containerElement.innerHTML = `
         <h1 class="title">Dashboard KPI</h1>
         <div class="field is-grouped is-grouped-right">
@@ -201,7 +202,8 @@ export const renderDashboardPage = async (containerElement) => {
         </div>
 
         <div class="columns is-multiline mt-4" id="kpi-charts-container">
-            <div class="column is-half">
+            
+            <div class="column is-half-desktop is-full-tablet">
                 <div class="box">
                     <h2 class="subtitle">Perbandingan Pekerjaan: Preventive vs Corrective</h2>
                     <div style="max-height: 350px;">
@@ -210,37 +212,40 @@ export const renderDashboardPage = async (containerElement) => {
                 </div>
             </div>
 
-            <div class="column is-half">
-                <div class="box">
-                    <h2 class="subtitle">Metrik Kinerja & Ringkasan Bulanan</h2>
-                    <div class="columns is-multiline is-mobile has-text-centered">
-                        <div class="column is-half">
-                            <div class="kpi-card">
-                                <p class="title is-4" id="monthly-report-count">0</p>
-                                <p class="label">Total Pekerjaan</p>
-                            </div>
-                        </div>
-                        <div class="column is-half">
-                            <div class="kpi-card">
-                                <p class="title is-4" id="monthly-downtime">0 Menit</p>
-                                <p class="label">Total Downtime</p>
-                            </div>
-                        </div>
-                        <div class="column is-half">
-                            <div class="kpi-card">
-                                <p class="title is-4" id="mttr-value">N/A</p>
-                                <p class="label">MTTR (Jam)</p>
-                            </div>
-                        </div>
-                        <div class="column is-half">
-                            <div class="kpi-card">
-                                <p class="title is-4" id="mtbf-value">N/A</p>
-                                <p class="label">MTBF (Jam)</p>
-                            </div>
+            <div class="column is-half-desktop is-full-tablet">
+                <h2 class="subtitle">Metrik Kinerja & Ringkasan Bulanan</h2>
+                <div class="columns is-multiline is-mobile">
+                    
+                    <div class="column is-half">
+                        <div class="box has-text-centered p-4">
+                            <p class="title is-4 has-text-primary" id="mttr-value">N/A</p>
+                            <p class="label">MTTR (Jam)</p>
                         </div>
                     </div>
-                    <p class="has-text-grey is-size-7 mt-3">Metrik dihitung dari data laporan bulan ini.</p>
+                    
+                    <div class="column is-half">
+                        <div class="box has-text-centered p-4">
+                            <p class="title is-4 has-text-primary" id="mtbf-value">N/A</p>
+                            <p class="label">MTBF (Jam)</p>
+                        </div>
+                    </div>
+                    
+                    <div class="column is-half">
+                        <div class="box has-text-centered p-4">
+                            <p class="title is-4 has-text-info" id="monthly-report-count">0</p>
+                            <p class="label">Total Pekerjaan</p>
+                        </div>
+                    </div>
+                    
+                    <div class="column is-half">
+                        <div class="box has-text-centered p-4">
+                            <p class="title is-4 has-text-danger" id="monthly-downtime">0 Menit</p>
+                            <p class="label">Total Downtime</p>
+                        </div>
+                    </div>
+                    
                 </div>
+                <p class="has-text-grey is-size-7 mt-1">Metrik dihitung dari data laporan bulan ini.</p>
             </div>
             </div>
         
@@ -261,16 +266,14 @@ export const renderDashboardPage = async (containerElement) => {
             } else {
                 mhMessageEl.style.display = 'none';
             }
-            // Karena Pie Chart dan Summary bersifat global/bulanan, mereka tidak dipanggil ulang di sini
         });
     }
 
     // 2. Muat Data Awal
-    // fetchAndRenderMachineStatus() sekarang kosong dan tidak akan menyebabkan error
-    fetchAndRenderMachineStatus(); 
+    fetchAndRenderMachineStatus(); // Memanggil fungsi KOSONG
     
     fetchAndRenderKPI(); 
-    fetchAndRenderMonthlySummary(); 
+    fetchAndRenderMonthlySummary(); // Ini akan menjalankan perhitungan KPI
     
     // 3. Setup listener real-time
     if (dashboardUnsubscribe) dashboardUnsubscribe();
@@ -283,7 +286,6 @@ export const renderDashboardPage = async (containerElement) => {
 
     db.collection('machines').onSnapshot(() => {
         console.log("[Dashboard] Machine data changed.");
-        // fetchAndRenderMachineStatus sekarang kosong, tapi listener tetap ada.
     });
 
     console.log("[Dashboard][renderDashboardPage] Finished renderDashboardPage.");
