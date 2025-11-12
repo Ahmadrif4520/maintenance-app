@@ -30,3 +30,29 @@ main {
     font-size: 0.9rem;
     color: #7a7a7a;
 }
+
+/* css/style.css (Tambahkan di bagian paling bawah) */
+
+/* Styles for Machine Status Indicators */
+.status-indicator {
+    display: inline-block;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    margin-right: 5px;
+    vertical-align: middle;
+}
+.status-indicator.is-success { background-color: #23d160; } /* Bulma success green */
+.status-indicator.is-warning { background-color: #ffdd57; } /* Bulma warning yellow */
+.status-indicator.is-danger { background-color: #ff3860; } /* Bulma danger red */
+
+.heading {
+    font-size: 0.75rem; /* Bulma heading size */
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-top: 5px;
+    color: #7a7a7a;
+}
+.level-item .title.is-6 { /* Adjust Bulma's default title margin */
+    margin-top: 0;
+}
