@@ -390,10 +390,10 @@ function renderChart(preventiveCount, correctiveCount) {
             },
             options: {
                 responsive: true,
-                maintainAspectRatio: false,
+                maintainAspectRatio: true,aspectRatio: 1,
                 plugins: {
                     legend: {
-                        position: 'top',
+                        position: 'bottom',
                     },
                     title: {
                         display: true,
