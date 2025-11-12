@@ -30,6 +30,17 @@ main {
     font-size: 0.9rem;
     color: #7a7a7a;
 }
+/* Tambahkan di file style.css Anda */
+#kpi-charts-container .column.is-half .box {
+    /* Set tinggi minimum untuk mencegah pergeseran saat chart dimuat */
+    min-height: 350px; 
+}
+
+/* Jika Anda ingin lebih spesifik ke canvas: */
+#kpi-chart {
+    /* Atur tinggi maksimal agar canvas tidak terlalu besar */
+    max-height: 320px;
+}
 
 /* css/style.css (Tambahkan di bagian paling bawah) */
 
