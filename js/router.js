@@ -4,8 +4,8 @@ import { renderLoginPage, renderRegisterPage, logout } from './auth.js';
 import { renderDashboardPage } from './dashboard.js';
 import { renderReportsPage } from './reports.js';
 import { renderMachinesPage, renderMachineDetailPage } from './machines.js';
-// Import fungsi setupNotificationListener dan fungsi cleanup dari notifications.js
-import { setupNotificationListener, updateNotificationBadge, machinesUnsubscribe, notificationsUnsubscribe } from './notifications.js';
+// Impor fungsi setup dan cleanup baru
+import { setupNotificationListener, updateNotificationBadge, cleanupNotificationListenersAndUI } from './notifications.js';
 import { renderMaterialHandlingPage } from './material_handling.js';
 
 console.log("[Router] Router module started loading.");
@@ -13,10 +13,7 @@ console.log("[Router] Router module started loading.");
 const appContent = document.getElementById('app-content');
 const navLinks = document.getElementById('nav-links');
 const authButtons = document.getElementById('auth-buttons');
-// Tidak lagi menggunakan #notification-area untuk toggling display,
-// karena sekarang ada #notification-toast-container yang fixed.
-// Namun, kita tetap butuh elemen untuk badge notifikasi di navbar.
-
+// Tidak lagi perlu elemen notifikasi dari router, karena sudah dihandle di notifications.js
 
 console.log("[Router] App content element:", appContent);
 console.log("[Router] Nav links element:", navLinks);
@@ -171,7 +168,7 @@ document.addEventListener('click', (e) => {
 document.addEventListener('click', (e) => {
     if (e.target.id === 'logout-button') {
         console.log("[Router] Logout button clicked.");
-        logout();
+        logout(); // Panggil fungsi logout dari auth.js
     }
 });
 
@@ -215,12 +212,12 @@ auth.onAuthStateChanged(async (user) => {
         }
         
         // Setup notifikasi in-app
-        // Pastikan notification-toast-container ada di index.html
-        if (document.getElementById('notification-toast-container') && setupNotificationListener) {
+        // Pastikan #notification-toast-container ada di index.html
+        if (document.getElementById('notification-toast-container')) {
             console.log("[Router] Initializing notification listeners.");
             setupNotificationListener(); // Panggil fungsi setupNotificationListener dari notifications.js
         } else {
-             console.warn("[Router] Notification toast container or setupNotificationListener not found. Skipping notification setup.");
+             console.warn("[Router] Notification toast container not found. Skipping notification setup.");
         }
 
 
@@ -248,28 +245,9 @@ auth.onAuthStateChanged(async (user) => {
             navLinks.innerHTML = '';
         }
 
-        // Cleanup notifikasi saat logout
-        console.log("[Router] Cleaning up notification listeners.");
-        if (machinesUnsubscribe) { // Pastikan variabel global ada dan merupakan fungsi
-            machinesUnsubscribe();
-            // Penting: Variabel `machinesUnsubscribe` ada di notifications.js,
-            // jadi kita tidak bisa langsung mengubahnya dari sini.
-            // Notifications.js harus mengelola state unsubscribe-nya sendiri.
-            // Namun, karena `notifications.js` dieksekusi ulang saat login,
-            // listener lama akan di-cleanup oleh `setupNotificationListener` itu sendiri.
-            // Untuk memastikan badge bersih:
-            updateNotificationBadge(0);
-        }
-        if (notificationsUnsubscribe) {
-            notificationsUnsubscribe();
-            // updateNotificationBadge(0); // Ini sudah dihandle di atas
-        }
-        const notificationsDropdownContent = document.getElementById('notifications-dropdown-content');
-        if(notificationsDropdownContent) notificationsDropdownContent.style.display = 'none'; // Sembunyikan dropdown
-
-        // Jika ada toast yang masih muncul, hapus
-        const toastContainer = document.getElementById('notification-toast-container');
-        if (toastContainer) toastContainer.innerHTML = '';
+        // Panggil fungsi cleanup notifikasi saat logout
+        console.log("[Router] Cleaning up notification listeners and UI.");
+        cleanupNotificationListenersAndUI();
 
 
         console.log("[Router] Navigating to /login for logged-out user.");
