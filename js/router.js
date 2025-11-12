@@ -256,3 +256,4 @@ auth.onAuthStateChanged(async (user) => {
 });
 
 console.log("[Router] Router module finished loading.");
+ 
