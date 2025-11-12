@@ -210,6 +210,8 @@ auth.onAuthStateChanged(async (user) => {
                 <a class="navbar-item" data-nav href="/reports">Log Laporan</a>
                 <a class="navbar-item" data-nav href="/machines">Master Mesin</a>
                 <a class="navbar-item" data-nav href="/material-handling-reports">M. Handling Reports</a>
+                <a class="navbar-item" data-nav href="/compressor_unit">Kompresor Unit</a>
+                <a class="navbar-item" data-nav href="/cooling_tower">Cooling Tower</a>
             `;
         }
         
