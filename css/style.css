@@ -41,6 +41,8 @@ main {
     border-radius: 50%;
     margin-right: 5px;
     vertical-align: middle;
+    /* Optional: Add a subtle border for visibility if background is white */
+    border: 1px solid #ccc;
 }
 .status-indicator.is-success { background-color: #23d160; } /* Bulma success green */
 .status-indicator.is-warning { background-color: #ffdd57; } /* Bulma warning yellow */
