@@ -5,7 +5,7 @@ let kpiChartInstance;
 let currentCategoryFilter = 'all_relevant';
 let dashboardUnsubscribe; // Untuk listener real-time dashboard
 
-// Fungsi untuk me-render Pie Chart (Menggunakan data Preventive vs Corrective)
+// Fungsi untuk me-render Pie Chart (Preventive vs Corrective) - TIDAK DIUBAH
 const renderChart = (data) => {
     const ctx = document.getElementById('kpi-chart')?.getContext('2d');
     if (!ctx) return;
@@ -72,12 +72,10 @@ const renderChart = (data) => {
     console.log("[Dashboard][renderChart] Pie Chart (Preventive vs Corrective) rendered.");
 };
 
-// Fungsi untuk mengambil data dan menginisialisasi KPI Chart (Pie Chart)
-// KETENTUAN PENGGUNA: Harus menghitung Preventive vs Corrective dari laporan.
+// Fungsi untuk mengambil data Pie Chart (Preventive vs Corrective) - TIDAK DIUBAH
 export const fetchAndRenderKPI = async () => {
     console.log(`[Dashboard][fetchAndRenderKPI] Fetching report data for Preventive vs Corrective Pie Chart.`);
     try {
-        // Mengambil semua laporan yang relevan (misal: hanya laporan Kerusakan dan Maintenance)
         const reportsSnapshot = await db.collection('reports').get();
 
         let reportCountByType = {
@@ -85,8 +83,6 @@ export const fetchAndRenderKPI = async () => {
             'Corrective': 0, 
         };
         
-        // Loop melalui laporan untuk menghitung Preventif vs Corrective
-        // ASUMSI: report.type = 'Maintenance' untuk Preventif, dan 'Kerusakan' untuk Corrective
         reportsSnapshot.forEach(doc => {
             const report = doc.data();
             const type = report.type;
@@ -96,7 +92,6 @@ export const fetchAndRenderKPI = async () => {
             } else if (type === 'Kerusakan' || type === 'Corrective') { 
                 reportCountByType['Corrective']++;
             }
-            // Laporan lain (seperti Pengecekan Harian) diabaikan dari Pie Chart ini.
         });
 
         renderChart(reportCountByType);
@@ -107,7 +102,7 @@ export const fetchAndRenderKPI = async () => {
 }
 
 
-// Fungsi untuk mengambil dan me-render Ringkasan Laporan Bulanan & Metrik (MTTR, MTBF, Downtime)
+// Fungsi untuk mengambil dan me-render Ringkasan Laporan Bulanan & Metrik (MTTR, MTBF, Downtime, Total Pekerjaan) - TIDAK DIUBAH
 export const fetchAndRenderMonthlySummary = async () => {
     try {
         const today = new Date();
@@ -169,9 +164,10 @@ export const fetchAndRenderMonthlySummary = async () => {
 }
 
 
-// FUNGSI INI DIKOSONGKAN (SESUAI PERMINTAAN: Hapus status card)
+// FUNGSI INI DIKOSONGKAN AGAR TIDAK MENGHASILKAN ERROR (SESUAI PERMINTAAN)
 export const fetchAndRenderMachineStatus = async () => {
     console.log("[Dashboard][fetchAndRenderMachineStatus] Logic disabled. Machine status cards removed from dashboard.");
+    // Logika asli di sini telah dihapus.
 };
 
 
@@ -182,7 +178,7 @@ export const renderDashboardPage = async (containerElement) => {
         return;
     }
 
-    // --- TEMPLATE DASHBOARD DENGAN KPI LENGKAP & TANPA CARD STATUS MESIN ---
+    // --- TEMPLATE DASHBOARD (Status Card Mesin Dihapus, KPI Lain Dijaga Utuh) ---
     containerElement.innerHTML = `
         <h1 class="title">Dashboard KPI</h1>
         <div class="field is-grouped is-grouped-right">
@@ -252,8 +248,7 @@ export const renderDashboardPage = async (containerElement) => {
     `;
     // --- AKHIR TEMPLATE DASHBOARD ---
 
-    // 1. Setup Filter (Filter ini hanya akan mempengaruhi TAMPILAN di masa depan, 
-    //    tapi tidak mempengaruhi MTTR/MTBF & Pie Chart yang bersifat global)
+    // 1. Setup Filter
     const filterEl = document.getElementById('kpi-category-filter');
     const mhMessageEl = document.getElementById('material-handling-message');
 
@@ -263,26 +258,22 @@ export const renderDashboardPage = async (containerElement) => {
             currentCategoryFilter = e.target.value;
             if (currentCategoryFilter === 'material_handling') {
                 mhMessageEl.style.display = 'block';
-                // Jika filter material handling dipilih, Pie Chart tetap menampilkan data global
             } else {
                 mhMessageEl.style.display = 'none';
             }
-            // Karena Pie Chart dan KPI summary bersifat global, mereka dipanggil di bawah
+            // Karena Pie Chart dan Summary bersifat global/bulanan, mereka tidak dipanggil ulang di sini
         });
     }
 
     // 2. Muat Data Awal
-    fetchAndRenderMachineStatus(); // FUNGSI KOSONG
+    // fetchAndRenderMachineStatus() sekarang kosong dan tidak akan menyebabkan error
+    fetchAndRenderMachineStatus(); 
     
-    // KPI (Pie Chart: Preventive vs Corrective)
-    fetchAndRenderKPI();
-    
-    // Monthly Summary (MTTR, MTBF, Downtime, Total Pekerjaan)
+    fetchAndRenderKPI(); 
     fetchAndRenderMonthlySummary(); 
     
     // 3. Setup listener real-time
     if (dashboardUnsubscribe) dashboardUnsubscribe();
-    // Listener untuk Laporan (Update KPI Summary & Pie Chart)
     dashboardUnsubscribe = db.collection('reports')
         .onSnapshot(() => {
             console.log("[Dashboard] Report data changed. Updating summary & KPI.");
@@ -290,10 +281,9 @@ export const renderDashboardPage = async (containerElement) => {
             fetchAndRenderKPI();
         });
 
-    // Listener untuk Mesin (Hanya untuk memicu jika ada perubahan mesin, meskipun status card sudah hilang)
     db.collection('machines').onSnapshot(() => {
         console.log("[Dashboard] Machine data changed.");
-        // fetchAndRenderMachineStatus tidak lagi dipanggil.
+        // fetchAndRenderMachineStatus sekarang kosong, tapi listener tetap ada.
     });
 
     console.log("[Dashboard][renderDashboardPage] Finished renderDashboardPage.");
