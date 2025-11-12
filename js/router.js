@@ -4,6 +4,8 @@ import { renderLoginPage, renderRegisterPage, logout } from './auth.js';
 import { renderDashboardPage } from './dashboard.js';
 import { renderReportsPage } from './reports.js';
 import { renderMachinesPage, renderMachineDetailPage } from './machines.js';
+import { renderCoolingTowerPage, cleanupCoolingTowerPage } from './cooling_tower.js';
+import { renderCompressorUnitPage, cleanupCompressorUnitPage } from './compressor_unit.js';
 // Impor fungsi setup dan cleanup baru
 import { setupNotificationListener, updateNotificationBadge, cleanupNotificationListenersAndUI } from './notifications.js';
 import { renderMaterialHandlingPage } from './material_handling.js';
