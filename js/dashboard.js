@@ -157,19 +157,43 @@ export const fetchAndRenderMonthlySummary = async () => {
             totalReports++;
         });
 
-        // Update UI
-        const reportCountEl = document.getElementById('monthly-report-count');
-        const downtimeEl = document.getElementById('monthly-downtime');
 
-        if (reportCountEl) reportCountEl.innerText = totalReports;
-        if (downtimeEl) downtimeEl.innerText = `${totalDowntime} Menit`;
-
-        console.log("[Dashboard][fetchAndRenderMonthlySummary] Monthly summary rendered.");
-
-    } catch (error) {
-        console.error("[Dashboard][fetchAndRenderMonthlySummary] Error fetching monthly summary:", error);
+        // *** KALKULASI METRIK ***
+    let mttrHours = 0;
+    let mtbfHours = 0;
+    
+    // 1. MTTR (Mean Time To Repair) = Total Downtime / Total Laporan (Kegagalan)
+    if (totalReports > 0) {
+        // Total Downtime (Menit) / Total Laporan / 60 Menit
+        mttrHours = (totalDowntime / totalReports / 60).toFixed(2); 
     }
-}
+
+    // 2. MTBF (Mean Time Between Failures) = Total Waktu Operasi / Total Laporan (Kegagalan)
+    // Anda perlu menghitung Total Waktu Operasi (misalnya, 720 jam/bulan - totalDowntime(jam))
+    const totalHoursInMonth = 720; // 30 hari * 24 jam
+    const totalDowntimeHours = totalDowntime / 60;
+    const uptimeHours = totalHoursInMonth - totalDowntimeHours; 
+    
+    if (totalReports > 0) {
+        mtbfHours = (uptimeHours / totalReports).toFixed(2);
+    }
+    // *** AKHIR KALKULASI METRIK ***
+
+
+    // Update UI
+    const reportCountEl = document.getElementById('monthly-report-count');
+    const downtimeEl = document.getElementById('monthly-downtime');
+    const mttrEl = document.getElementById('mttr-value');
+    const mtbfEl = document.getElementById('mtbf-value');
+
+    if (reportCountEl) reportCountEl.innerText = totalReports;
+    if (downtimeEl) downtimeEl.innerText = `${totalDowntime} Menit`;
+    
+    // UPDATE MTTR dan MTBF
+    if (mttrEl) mttrEl.innerText = `${mttrHours} Jam`;
+    if (mtbfEl) mtbfEl.innerText = `${mtbfHours} Jam`;
+
+    console.log("[Dashboard][fetchAndRenderMonthlySummary] Monthly summary & KPI rendered.");
 
 // Fungsi untuk mengambil dan me-render status mesin (Dihapus/Dikosongkan)
 // Karena fungsionalitas ini dipindahkan ke halaman Kompresor Unit dan Cooling Tower
