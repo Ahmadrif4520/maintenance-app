@@ -246,6 +246,7 @@ window.markNotificationAsRead = async (notificationId, toastElement) => {
         
         // Hapus toast dari DOM
         if (toastElement && toastElement.parentNode) {
+toastElement.remove();
             toastElement.classList.remove('fadeInRight');
             toastElement.classList.add('fadeOutRight');
             // Tambahkan listener untuk menghapus setelah animasi selesai
