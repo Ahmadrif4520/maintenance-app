@@ -36,6 +36,10 @@
             </div>
             <div class="navbar-end">
                 <div class="navbar-item">
+                    <a class="button is-text has-text-white mr-4" id="notifications-dropdown-toggle">
+                    <span class="icon"><i class="fas fa-bell"></i></span>
+                    <span class="badge is-danger is-pulled-right" id="unread-notifications-badge" style="display: none;"></span>
+                    </a>
                     <div class="buttons" id="auth-buttons">
                         <!-- Tombol Login/Logout akan dimuat di sini -->
                     </div>
@@ -44,8 +48,10 @@
         </div>
     </nav>
 
-    <div class="section" id="notification-area" style="display:none;">
-        <div class="container">
+    <div id="notification-toast-container" style="position: fixed; top: 20px; right: 20px; z-index: 1000;">
+    <!-- Notifikasi toast akan muncul di sini -->  
+</div>
+    <div class="container">
             <!-- Toast notifications will appear here -->
         </div>
     </div>
