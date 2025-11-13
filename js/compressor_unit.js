@@ -64,7 +64,6 @@ export const renderCompressorUnitPage = async (containerElement) => {
         </div>
     `;
 
-    // Ambil dan tampilkan status mesin dan daftar mesin Kompresor Unit
     setupCompressorUnitMachinesListener();
 };
 
@@ -91,7 +90,7 @@ function setupCompressorUnitMachinesListener() {
                 machinesListBody.innerHTML = `<tr><td colspan="8" class="has-text-centered">Tidak ada data mesin Kompresor Unit.</td></tr>`;
             } else {
                 snapshot.forEach(doc => {
-                    const machine = { docId: doc.id, ...doc.data() }; // Pastikan docId disertakan
+                    const machine = { docId: doc.id, ...doc.data() };
                     const row = machinesListBody.insertRow();
 
                     const currentRuntimeHours = machine.currentRuntimeHours || 0;
@@ -99,10 +98,9 @@ function setupCompressorUnitMachinesListener() {
                     let displayRuntimeHours = currentRuntimeHours;
                     let lastRunStartTimeFormatted = 'N/A';
 
-                    // Jika mesin RUN, hitung jam operasional real-time
                     if (machine.status === 'RUN' && machine.lastRunStartTime) {
                         const now = new Date();
-                        const lastRunTime = machine.lastRunStartTime.toDate(); // Konversi Firestore Timestamp ke Date object
+                        const lastRunTime = machine.lastRunStartTime.toDate();
                         const runningDurationMs = now.getTime() - lastRunTime.getTime();
                         const runningDurationHours = runningDurationMs / (1000 * 60 * 60);
                         displayRuntimeHours = currentRuntimeHours + runningDurationHours;
@@ -113,7 +111,6 @@ function setupCompressorUnitMachinesListener() {
                     row.insertCell(1).textContent = machine.name;
                     row.insertCell(2).textContent = machine.location;
 
-                    // Status Toggle
                     const statusCell = row.insertCell(3);
                     const statusSelect = document.createElement('div');
                     statusSelect.className = 'select is-small';
@@ -129,16 +126,16 @@ function setupCompressorUnitMachinesListener() {
                     });
                     statusCell.appendChild(statusSelect);
                     
-                    row.insertCell(4).textContent = displayRuntimeHours.toFixed(2) + ' Jam'; // Jam Operasional
-                    row.insertCell(5).textContent = lastRunStartTimeFormatted; // Waktu Mulai RUN
-                    row.insertCell(6).textContent = serviceIntervalHours + ' Jam'; // Interval Servis
+                    row.insertCell(4).textContent = displayRuntimeHours.toFixed(2) + ' Jam';
+                    row.insertCell(5).textContent = lastRunStartTimeFormatted;
+                    row.insertCell(6).textContent = serviceIntervalHours + ' Jam';
 
                     const actionsCell = row.insertCell(7);
-                    // Reset Runtime Button
                     const resetButton = document.createElement('button');
                     resetButton.className = 'button is-small is-warning is-light mr-2';
                     resetButton.innerHTML = `<span class="icon is-small"><i class="fas fa-redo"></i></span><span>Reset Jam</span>`;
-                    resetButton.addEventListener('click', () => resetMachineRuntime(machine.docId, machineName));
+                    // PERBAIKAN DI SINI: Meneruskan machine.name
+                    resetButton.addEventListener('click', () => resetMachineRuntime(machine.docId, machine.name));
                     actionsCell.appendChild(resetButton);
 
                     if (machineStatusCounts[machine.status]) {
@@ -147,7 +144,6 @@ function setupCompressorUnitMachinesListener() {
                 });
             }
 
-            // Update status counts in the cards
             document.getElementById('ku-run-count').innerText = machineStatusCounts.RUN;
             document.getElementById('ku-idle-count').innerText = machineStatusCounts.IDLE;
             document.getElementById('ku-stop-count').innerText = machineStatusCounts.STOP;
@@ -158,7 +154,6 @@ function setupCompressorUnitMachinesListener() {
         });
 }
 
-// Fungsi untuk memperbarui status mesin
 async function updateMachineStatus(docId, newStatus, currentMachineData) {
     try {
         let updateData = {
@@ -166,13 +161,11 @@ async function updateMachineStatus(docId, newStatus, currentMachineData) {
             updatedAt: firebase.firestore.FieldValue.serverTimestamp()
         };
 
-        // Jika mesin berubah ke RUN
         if (newStatus === 'RUN') {
-            if (currentMachineData.status !== 'RUN') { // Hanya set lastRunStartTime jika sebelumnya bukan RUN
+            if (currentMachineData.status !== 'RUN') {
                 updateData.lastRunStartTime = firebase.firestore.FieldValue.serverTimestamp();
             }
         } 
-        // Jika mesin berubah dari RUN ke IDLE atau STOP
         else if (currentMachineData.status === 'RUN' && currentMachineData.lastRunStartTime) {
             const now = new Date();
             const lastRunTime = currentMachineData.lastRunStartTime.toDate();
@@ -180,10 +173,9 @@ async function updateMachineStatus(docId, newStatus, currentMachineData) {
             const runningDurationHours = runningDurationMs / (1000 * 60 * 60);
 
             updateData.currentRuntimeHours = (currentMachineData.currentRuntimeHours || 0) + runningDurationHours;
-            updateData.lastRunStartTime = null; // Hentikan perhitungan
+            updateData.lastRunStartTime = null;
         } else {
-             // Jika berubah dari IDLE/STOP ke IDLE/STOP, tidak ada perubahan runtime
-             updateData.lastRunStartTime = null; // Pastikan null jika tidak RUN
+             updateData.lastRunStartTime = null;
         }
 
         await db.collection('machines').doc(docId).update(updateData);
@@ -194,15 +186,14 @@ async function updateMachineStatus(docId, newStatus, currentMachineData) {
     }
 }
 
-// Fungsi untuk mereset jam operasional
-async function resetMachineRuntime(docId, machineName) {
+async function resetMachineRuntime(docId, machineName) { // machineName sekarang diterima dengan benar
     if (!confirm(`Apakah Anda yakin ingin mereset jam operasional mesin ${machineName}? Aksi ini tidak dapat dibatalkan.`)) {
         return;
     }
     try {
         await db.collection('machines').doc(docId).update({
             currentRuntimeHours: 0,
-            lastRunStartTime: null, // Pastikan waktu mulai juga direset
+            lastRunStartTime: null,
             updatedAt: firebase.firestore.FieldValue.serverTimestamp()
         });
         alert(`Jam operasional mesin ${machineName} berhasil direset.`);
@@ -212,7 +203,6 @@ async function resetMachineRuntime(docId, machineName) {
     }
 }
 
-// Tambahkan fungsi cleanup jika diperlukan oleh router (saat logout, dll.)
 export const cleanupCompressorUnitListeners = () => {
     if (machinesUnsubscribe) {
         machinesUnsubscribe();
