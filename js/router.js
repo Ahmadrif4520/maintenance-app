@@ -4,18 +4,17 @@ import { renderLoginPage, renderRegisterPage, logout } from './auth.js';
 import { renderDashboardPage } from './dashboard.js';
 import { renderReportsPage } from './reports.js';
 import { renderMachinesPage, renderMachineDetailPage } from './machines.js';
-import { renderCoolingTowerPage, cleanupCoolingTowerPage } from './cooling_tower.js';
-import { renderCompressorUnitPage, cleanupCompressorUnitPage } from './compressor_unit.js';
-// Impor fungsi setup dan cleanup baru
 import { setupNotificationListener, updateNotificationBadge, cleanupNotificationListenersAndUI } from './notifications.js';
 import { renderMaterialHandlingPage } from './material_handling.js';
+// Impor render function dan cleanup function untuk halaman baru
+import { renderCoolingTowerPage, cleanupCoolingTowerListeners } from './cooling_tower.js'; // BARIS INI DITAMBAHKAN
+import { renderCompressorUnitPage, cleanupCompressorUnitListeners } from './compressor_unit.js'; // BARIS INI DITAMBAHKAN
 
 console.log("[Router] Router module started loading.");
 
 const appContent = document.getElementById('app-content');
 const navLinks = document.getElementById('nav-links');
 const authButtons = document.getElementById('auth-buttons');
-// Tidak lagi perlu elemen notifikasi dari router, karena sudah dihandle di notifications.js
 
 console.log("[Router] App content element:", appContent);
 console.log("[Router] Nav links element:", navLinks);
@@ -27,7 +26,7 @@ const loadPage = async (path) => {
     console.log(`[Router] loadPage called for path: "${path}"`);
 
     if (!appContent) {
-        console.error("[Router] appContent element not found during loadPage. Cannot render page content.");
+        console.error("[Router] FATAL: appContent element not found during loadPage. Cannot render page content.");
         return;
     }
 
@@ -38,6 +37,13 @@ const loadPage = async (path) => {
             <p>Silakan tunggu...</p>
         </div>
     `;
+
+    // Cleanup listeners dari halaman sebelumnya sebelum merender halaman baru
+    cleanupCoolingTowerListeners();
+    cleanupCompressorUnitListeners();
+    // materialHandlingReportsUnsubscribe (dari material_handling.js) juga perlu di-cleanup,
+    // tapi itu akan dilakukan saat listener baru di-setup di halaman material_handling.js itu sendiri
+    // Atau bisa tambahkan cleanupMaterialHandlingListeners() jika diperlukan di material_handling.js
 
     const user = auth.currentUser;
     console.log(`[Router] Current user during loadPage: ${user ? user.uid : "null"}`);
@@ -82,7 +88,7 @@ const loadPage = async (path) => {
             } else {
                 console.warn(`[Router] User not authorized for Dashboard. Current role: ${userRole}.`);
                 appContent.innerHTML = `<p class="notification is-danger">Anda tidak memiliki izin untuk mengakses halaman ini.</p>`;
-                if (user) navigateTo('/login'); // Jika user login tapi tidak punya akses, redirect ke login
+                if (user) navigateTo('/login');
             }
             break;
         case '/reports':
@@ -132,8 +138,27 @@ const loadPage = async (path) => {
                 if (user) navigateTo('/login');
             }
             break;
+        case '/cooling-tower-dashboard': // Rute baru
+            if (user && (userRole === 'admin' || userRole === 'technician')) {
+                console.log("[Router] User authorized for Cooling Tower Dashboard. Rendering page.");
+                await renderCoolingTowerPage(appContent);
+            } else {
+                console.warn(`[Router] User not authorized for Cooling Tower Dashboard. Current role: ${userRole}.`);
+                appContent.innerHTML = `<p class="notification is-danger">Anda tidak memiliki izin untuk mengakses halaman ini.</p>`;
+                if (user) navigateTo('/login');
+            }
+            break;
+        case '/compressor-unit-dashboard': // Rute baru
+            if (user && (userRole === 'admin' || userRole === 'technician')) {
+                console.log("[Router] User authorized for Compressor Unit Dashboard. Rendering page.");
+                await renderCompressorUnitPage(appContent);
+            } else {
+                console.warn(`[Router] User not authorized for Compressor Unit Dashboard. Current role: ${userRole}.`);
+                appContent.innerHTML = `<p class="notification is-danger">Anda tidak memiliki izin untuk mengakses halaman ini.</p>`;
+                if (user) navigateTo('/login');
+            }
+            break;
         default:
-            // Jika path tidak dikenali atau adalah '/', default ke dashboard jika login, atau login jika belum
             if (user) {
                 console.log("[Router] Default path for logged-in user. Redirecting to /dashboard.");
                 navigateTo('/dashboard');
@@ -148,7 +173,6 @@ const loadPage = async (path) => {
 export const navigateTo = (path, state = {}) => {
     console.log(`[Router] navigateTo called: "${path}"`);
     if (window.location.pathname === path) {
-        // Jika path sama, tidak perlu pushState baru, cukup muat ulang konten
         console.log(`[Router] Already at path "${path}", just reloading content.`);
         loadPage(path);
     } else {
@@ -170,7 +194,7 @@ document.addEventListener('click', (e) => {
 document.addEventListener('click', (e) => {
     if (e.target.id === 'logout-button') {
         console.log("[Router] Logout button clicked.");
-        logout(); // Panggil fungsi logout dari auth.js
+        logout();
     }
 });
 
@@ -185,7 +209,7 @@ auth.onAuthStateChanged(async (user) => {
 
     if (user) {
         console.log(`[Router] User ${user.uid} is logged in.`);
-        let userRole = 'technician'; // Default
+        let userRole = 'technician';
         try {
             const userDoc = await db.collection('users').doc(user.uid).get();
             const userData = userDoc.data();
@@ -210,20 +234,17 @@ auth.onAuthStateChanged(async (user) => {
                 <a class="navbar-item" data-nav href="/reports">Log Laporan</a>
                 <a class="navbar-item" data-nav href="/machines">Master Mesin</a>
                 <a class="navbar-item" data-nav href="/material-handling-reports">M. Handling Reports</a>
-                <a class="navbar-item" data-nav href="/compressor_unit">Kompresor Unit</a>
-                <a class="navbar-item" data-nav href="/cooling_tower">Cooling Tower</a>
+                <a class="navbar-item" data-nav href="/cooling-tower-dashboard">Cooling Tower</a> <!-- BARIS INI DITAMBAHKAN -->
+                <a class="navbar-item" data-nav href="/compressor-unit-dashboard">Kompresor Unit</a> <!-- BARIS INI DITAMBAHKAN -->
             `;
         }
         
-        // Setup notifikasi in-app
-        // Pastikan #notification-toast-container ada di index.html
         if (document.getElementById('notification-toast-container')) {
             console.log("[Router] Initializing notification listeners.");
-            setupNotificationListener(); // Panggil fungsi setupNotificationListener dari notifications.js
+            setupNotificationListener();
         } else {
              console.warn("[Router] Notification toast container not found. Skipping notification setup.");
         }
-
 
         const currentPath = window.location.pathname;
         if (currentPath === '/' || currentPath === '/login' || currentPath === '/register') {
@@ -249,10 +270,10 @@ auth.onAuthStateChanged(async (user) => {
             navLinks.innerHTML = '';
         }
 
-        // Panggil fungsi cleanup notifikasi saat logout
-        console.log("[Router] Cleaning up notification listeners and UI.");
+        console.log("[Router] Cleaning up all listeners and UI elements.");
         cleanupNotificationListenersAndUI();
-
+        cleanupCoolingTowerListeners(); // Cleanup listener halaman baru
+        cleanupCompressorUnitListeners(); // Cleanup listener halaman baru
 
         console.log("[Router] Navigating to /login for logged-out user.");
         navigateTo('/login');
@@ -260,4 +281,3 @@ auth.onAuthStateChanged(async (user) => {
 });
 
 console.log("[Router] Router module finished loading.");
- 
