@@ -33,98 +33,7 @@ export const renderDashboardPage = async (containerElement) => {
             <button class="button is-light mt-3" onclick="window.location.reload()">Refresh Dashboard</button>
         </div>
 
-        <div class="columns is-multiline mt-4" id="machine-status-cards-container">
-            <!-- Cooling Tower Status Card -->
-            <div class="column is-one-quarter">
-                <div class="box">
-                    <p class="title is-5">Cooling Tower</p>
-                    <p class="subtitle is-7 has-text-grey">Status Mesin</p>
-                    <div class="level is-mobile mt-3">
-                        <div class="level-item has-text-centered">
-                            <div>
-                                <span class="status-indicator is-success"></span>
-                                <p class="heading">RUN</p>
-                                <p class="title is-6" id="ct-run-count">0</p>
-                            </div>
-                        </div>
-                        <div class="level-item has-text-centered">
-                            <div>
-                                <span class="status-indicator is-warning"></span>
-                                <p class="heading">IDLE</p>
-                                <p class="title is-6" id="ct-idle-count">0</p>
-                            </div>
-                        </div>
-                        <div class="level-item has-text-centered">
-                            <div>
-                                <span class="status-indicator is-danger"></span>
-                                <p class="heading">STOP</p>
-                                <p class="title is-6" id="ct-stop-count">0</p>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            <!-- Kompresor Unit Status Card -->
-            <div class="column is-one-quarter">
-                <div class="box">
-                    <p class="title is-5">Kompresor Unit</p>
-                    <p class="subtitle is-7 has-text-grey">Status Mesin</p>
-                    <div class="level is-mobile mt-3">
-                        <div class="level-item has-text-centered">
-                            <div>
-                                <span class="status-indicator is-success"></span>
-                                <p class="heading">RUN</p>
-                                <p class="title is-6" id="ku-run-count">0</p>
-                            </div>
-                        </div>
-                        <div class="level-item has-text-centered">
-                            <div>
-                                <span class="status-indicator is-warning"></span>
-                                <p class="heading">IDLE</p>
-                                <p class="title is-6" id="ku-idle-count">0</p>
-                            </div>
-                        </div>
-                        <div class="level-item has-text-centered">
-                            <div>
-                                <span class="status-indicator is-danger"></span>
-                                <p class="heading">STOP</p>
-                                <p class="title is-6" id="ku-stop-count">0</p>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            <!-- General Machine Status Card -->
-            <div class="column is-one-quarter">
-                <div class="box">
-                    <p class="title is-5">General</p>
-                    <p class="subtitle is-7 has-text-grey">Status Mesin</p>
-                    <div class="level is-mobile mt-3">
-                        <div class="level-item has-text-centered">
-                            <div>
-                                <span class="status-indicator is-success"></span>
-                                <p class="heading">RUN</p>
-                                <p class="title is-6" id="gen-run-count">0</p>
-                            </div>
-                        </div>
-                        <div class="level-item has-text-centered">
-                            <div>
-                                <span class="status-indicator is-warning"></span>
-                                <p class="heading">IDLE</p>
-                                <p class="title is-6" id="gen-idle-count">0</p>
-                            </div>
-                        </div>
-                        <div class="level-item has-text-centered">
-                            <div>
-                                <span class="status-indicator is-danger"></span>
-                                <p class="heading">STOP</p>
-                                <p class="title is-6" id="gen-stop-count">0</p>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
+        <!-- Cards Status Mesin Dihapus Dari Sini -->
 
         <div class="columns is-multiline" id="kpi-cards-container">
             <div class="column is-one-quarter">
@@ -178,13 +87,12 @@ export const renderDashboardPage = async (containerElement) => {
         categoryFilterElement.addEventListener('change', (event) => {
             currentCategoryFilter = event.target.value;
             fetchAndCalculateKPIs();
-            fetchAndRenderMachineStatus();
+            // fetchAndRenderMachineStatus(); // Dihapus
         });
     }
 
     await fetchAndCalculateKPIs();
-    // Pastikan fetchAndRenderMachineStatus dipanggil setelah HTML cards ada di DOM
-    await fetchAndRenderMachineStatus(); 
+    // await fetchAndRenderMachineStatus(); // Dihapus
     console.log("[Dashboard][renderDashboardPage] Finished renderDashboardPage.");
 };
 
@@ -194,36 +102,34 @@ async function fetchAndCalculateKPIs() {
         const materialHandlingMessage = document.getElementById('material-handling-message');
         const kpiCardsContainer = document.getElementById('kpi-cards-container');
         const kpiChartsContainer = document.getElementById('kpi-charts-container');
-        const machineStatusCardsContainer = document.getElementById('machine-status-cards-container');
+        // const machineStatusCardsContainer = document.getElementById('machine-status-cards-container'); // Dihapus
 
         if (currentCategoryFilter === 'material_handling') {
             console.log("[Dashboard][fetchAndCalculateKPIs] Filter is material_handling. Hiding KPI sections.");
             if (materialHandlingMessage) materialHandlingMessage.style.display = 'block';
             if (kpiCardsContainer) kpiCardsContainer.style.display = 'none';
             if (kpiChartsContainer) kpiChartsContainer.style.display = 'none';
-            if (machineStatusCardsContainer) machineStatusCardsContainer.style.display = 'none'; // Sembunyikan juga status mesin
+            // if (machineStatusCardsContainer) machineStatusCardsContainer.style.display = 'none'; // Dihapus
             
-            // Reset KPI values
             if (document.getElementById('mttr-value')) document.getElementById('mttr-value').innerText = 'N/A';
             if (document.getElementById('mtbf-value')) document.getElementById('mtbf-value').innerText = 'N/A';
             if (document.getElementById('total-downtime-value')) document.getElementById('total-downtime-value').innerText = 'N/A';
             if (document.getElementById('total-jobs-value')) document.getElementById('total-jobs-value').innerText = 'N/A';
-            if (kpiChartInstance) { // Cek apakah kpiChartInstance ada sebelum destroy
+            if (kpiChartInstance) {
                  kpiChartInstance.destroy();
-                 kpiChartInstance = null; // Set ke null setelah destroy
+                 kpiChartInstance = null;
             }
             const monthlySummaryDiv = document.getElementById('monthly-summary-data');
             if(monthlySummaryDiv) monthlySummaryDiv.innerHTML = '<p class="has-text-centered">Tidak ada data untuk kategori ini di dashboard ini.</p>';
 
-            return; // Hentikan eksekusi lebih lanjut
+            return;
         } else {
             console.log("[Dashboard][fetchAndCalculateKPIs] Filter is NOT material_handling. Showing KPI sections.");
             if (materialHandlingMessage) materialHandlingMessage.style.display = 'none';
             if (kpiCardsContainer) kpiCardsContainer.style.display = 'flex';
             if (kpiChartsContainer) kpiChartsContainer.style.display = 'flex';
-            if (machineStatusCardsContainer) machineStatusCardsContainer.style.display = 'flex';
+            // if (machineStatusCardsContainer) machineStatusCardsContainer.style.display = 'flex'; // Dihapus
 
-            // Reset placeholder di elemen KPI cards
             if (document.getElementById('mttr-value')) document.getElementById('mttr-value').innerText = '0.00';
             if (document.getElementById('mtbf-value')) document.getElementById('mtbf-value').innerText = '0.00';
             if (document.getElementById('total-downtime-value')) document.getElementById('total-downtime-value').innerText = '0.00';
@@ -318,7 +224,7 @@ async function fetchAndCalculateKPIs() {
         if (monthlySummaryDiv) {
             if (Object.keys(monthlySummary).length > 0) {
                 const sortedMonths = Object.keys(monthlySummary).sort();
-                let summaryHtml = '<table class="table is-striped is-hoverable is-fullwidth"><thead><tr><th>Bulan</th><th>Preventive</th><th><th>Corrective</th><th>Downtime (jam)</th></tr></thead><tbody>';
+                let summaryHtml = '<table class="table is-striped is-hoverable is-fullwidth"><thead><tr><th>Bulan</th><th>Preventive</th><th>Corrective</th><th>Downtime (jam)</th></tr></thead><tbody>';
                 sortedMonths.forEach(monthYear => {
                     const data = monthlySummary[monthYear];
                     summaryHtml += `
@@ -364,11 +270,9 @@ function renderChart(preventiveCount, correctiveCount) {
         return;
     }
     
-    // Clear previous chart if exists
     if (kpiChartInstance) {
         kpiChartInstance.destroy();
     }
-    // Check if canvas is valid before creating new Chart
     if (ctx.getContext) {
         kpiChartInstance = new Chart(ctx, {
             type: 'pie',
@@ -409,81 +313,4 @@ function renderChart(preventiveCount, correctiveCount) {
         console.error("[Dashboard][renderChart] Canvas element does not support getContext (likely not a canvas or corrupted).");
     }
 }
-
-// Fungsi untuk mengambil dan menampilkan status mesin
-async function fetchAndRenderMachineStatus() {
-    console.log("[Dashboard][fetchAndRenderMachineStatus] Starting fetchAndRenderMachineStatus.");
-    const categoriesToMonitor = ['cooling_tower', 'kompresor_unit', 'general'];
-    const machineStatusCounts = {
-        cooling_tower: { RUN: 0, IDLE: 0, STOP: 0 },
-        kompresor_unit: { RUN: 0, IDLE: 0, STOP: 0 },
-        general: { RUN: 0, IDLE: 0, STOP: 0 }
-    };
-
-    try {
-        const snapshot = await db.collection('machines')
-                                 .where('category', 'in', categoriesToMonitor)
-                                 .get();
-        
-        console.log(`[Dashboard][fetchAndRenderMachineStatus] Fetched ${snapshot.size} machines for status check from Firestore.`);
-        if (snapshot.empty) {
-            console.log("[Dashboard][fetchAndRenderMachineStatus] No machines found in monitored categories.");
-        }
-
-        snapshot.forEach(doc => {
-            const machine = doc.data();
-            const category = machine.category;
-            const status = machine.status;
-            console.log(`[Dashboard][fetchAndRenderMachineStatus] Processing machine: ${machine.name || machine.machineId}, Category: ${category}, Status: ${status}`);
-
-            // Pastikan category dan status adalah string yang valid dan ada di machineStatusCounts
-            if (typeof category === 'string' && categoriesToMonitor.includes(category) &&
-                typeof status === 'string' && ['RUN', 'IDLE', 'STOP'].includes(status) &&
-                machineStatusCounts[category] && machineStatusCounts[category][status]) {
-                machineStatusCounts[category][status]++;
-            } else {
-                console.warn(`[Dashboard][fetchAndRenderMachineStatus] Machine skipped due to invalid/unexpected category or status. Machine: ${machine.name || machine.machineId}, Raw Data:`, machine);
-            }
-        });
-
-        console.log("[Dashboard][fetchAndRenderMachineStatus] Calculated machineStatusCounts:", machineStatusCounts);
-
-        // Update UI for Cooling Tower
-        const ctRun = document.getElementById('ct-run-count');
-        if (ctRun) ctRun.innerText = machineStatusCounts.cooling_tower.RUN; else console.error("[Dashboard][fetchAndRenderMachineStatus] ct-run-count element not found.");
-        const ctIdle = document.getElementById('ct-idle-count');
-        if (ctIdle) ctIdle.innerText = machineStatusCounts.cooling_tower.IDLE; else console.error("[Dashboard][fetchAndRenderMachineStatus] ct-idle-count element not found.");
-        const ctStop = document.getElementById('ct-stop-count');
-        if (ctStop) ctStop.innerText = machineStatusCounts.cooling_tower.STOP; else console.error("[Dashboard][fetchAndRenderMachineStatus] ct-stop-count element not found.");
-
-        // Update UI for Kompresor Unit
-        const kuRun = document.getElementById('ku-run-count');
-        if (kuRun) kuRun.innerText = machineStatusCounts.kompresor_unit.RUN; else console.error("[Dashboard][fetchAndRenderMachineStatus] ku-run-count element not found.");
-        const kuIdle = document.getElementById('ku-idle-count');
-        if (kuIdle) kuIdle.innerText = machineStatusCounts.kompresor_unit.IDLE; else console.error("[Dashboard][fetchAndRenderMachineStatus] ku-idle-count element not found.");
-        const kuStop = document.getElementById('ku-stop-count');
-        if (kuStop) kuStop.innerText = machineStatusCounts.kompresor_unit.STOP; else console.error("[Dashboard][fetchAndRenderMachineStatus] ku-stop-count element not found.");
-
-        // Update UI for General
-        const genRun = document.getElementById('gen-run-count');
-        if (genRun) genRun.innerText = machineStatusCounts.general.RUN; else console.error("[Dashboard][fetchAndRenderMachineStatus] gen-run-count element not found.");
-        const genIdle = document.getElementById('gen-idle-count');
-        if (genIdle) genIdle.innerText = machineStatusCounts.general.IDLE; else console.error("[Dashboard][fetchAndRenderMachineStatus] gen-idle-count element not found.");
-        const genStop = document.getElementById('gen-stop-count');
-        if (genStop) genStop.innerText = machineStatusCounts.general.STOP; else console.error("[Dashboard][fetchAndRenderMachineStatus] gen-stop-count element not found.");
-
-        console.log("[Dashboard][fetchAndRenderMachineStatus] Finished fetchAndRenderMachineStatus successfully.");
-
-    } catch (error) {
-        console.error("[Dashboard][fetchAndRenderMachineStatus] Error in fetchAndRenderMachineStatus:", error);
-        const elementsToUpdate = [
-            'ct-run-count', 'ct-idle-count', 'ct-stop-count',
-            'ku-run-count', 'ku-idle-count', 'ku-stop-count',
-            'gen-run-count', 'gen-idle-count', 'gen-stop-count'
-        ];
-        elementsToUpdate.forEach(id => {
-            const el = document.getElementById(id);
-            if (el) el.innerText = 'N/A';
-        });
-    }
-}
+// Fungsi fetchAndRenderMachineStatus() telah dihapus dari sini.
