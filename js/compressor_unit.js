@@ -51,9 +51,9 @@ export const renderCompressorUnitPage = async (containerElement) => {
                             <th>Lokasi</th>
                             <th>Status</th>
                             <th>Jam Operasional</th>
+                            <th>Mulai RUN</th>
                             <th>Interval Servis (Jam)</th>
-                            <th>Tekanan (Bar)</th>
-                            <th>Temperatur (°C)</th>
+                            <th>Aksi</th>
                         </tr>
                     </thead>
                     <tbody id="ku-machines-list">
@@ -91,16 +91,55 @@ function setupCompressorUnitMachinesListener() {
                 machinesListBody.innerHTML = `<tr><td colspan="8" class="has-text-centered">Tidak ada data mesin Kompresor Unit.</td></tr>`;
             } else {
                 snapshot.forEach(doc => {
-                    const machine = doc.data();
+                    const machine = { docId: doc.id, ...doc.data() }; // Pastikan docId disertakan
                     const row = machinesListBody.insertRow();
+
+                    const currentRuntimeHours = machine.currentRuntimeHours || 0;
+                    const serviceIntervalHours = machine.serviceIntervalHours || 0;
+                    let displayRuntimeHours = currentRuntimeHours;
+                    let lastRunStartTimeFormatted = 'N/A';
+
+                    // Jika mesin RUN, hitung jam operasional real-time
+                    if (machine.status === 'RUN' && machine.lastRunStartTime) {
+                        const now = new Date();
+                        const lastRunTime = machine.lastRunStartTime.toDate(); // Konversi Firestore Timestamp ke Date object
+                        const runningDurationMs = now.getTime() - lastRunTime.getTime();
+                        const runningDurationHours = runningDurationMs / (1000 * 60 * 60);
+                        displayRuntimeHours = currentRuntimeHours + runningDurationHours;
+                        lastRunStartTimeFormatted = lastRunTime.toLocaleString('id-ID', { dateStyle: 'short', timeStyle: 'short' });
+                    }
+
                     row.insertCell(0).textContent = machine.machineId;
                     row.insertCell(1).textContent = machine.name;
                     row.insertCell(2).textContent = machine.location;
-                    row.insertCell(3).textContent = machine.status;
-                    row.insertCell(4).textContent = (machine.currentRuntimeHours || 0) + ' Jam';
-                    row.insertCell(5).textContent = (machine.serviceIntervalHours || 0) + ' Jam';
-                    row.insertCell(6).textContent = (machine.additionalDetails?.pressure || '-') + ' Bar';
-                    row.insertCell(7).textContent = (machine.additionalDetails?.temperature || '-') + ' °C';
+
+                    // Status Toggle
+                    const statusCell = row.insertCell(3);
+                    const statusSelect = document.createElement('div');
+                    statusSelect.className = 'select is-small';
+                    statusSelect.innerHTML = `
+                        <select data-machine-id="${machine.docId}" class="machine-status-selector">
+                            <option value="RUN" ${machine.status === 'RUN' ? 'selected' : ''}>RUN</option>
+                            <option value="IDLE" ${machine.status === 'IDLE' ? 'selected' : ''}>IDLE</option>
+                            <option value="STOP" ${machine.status === 'STOP' ? 'selected' : ''}>STOP</option>
+                        </select>
+                    `;
+                    statusSelect.querySelector('select').addEventListener('change', (e) => {
+                        updateMachineStatus(e.target.dataset.machineId, e.target.value, machine);
+                    });
+                    statusCell.appendChild(statusSelect);
+                    
+                    row.insertCell(4).textContent = displayRuntimeHours.toFixed(2) + ' Jam'; // Jam Operasional
+                    row.insertCell(5).textContent = lastRunStartTimeFormatted; // Waktu Mulai RUN
+                    row.insertCell(6).textContent = serviceIntervalHours + ' Jam'; // Interval Servis
+
+                    const actionsCell = row.insertCell(7);
+                    // Reset Runtime Button
+                    const resetButton = document.createElement('button');
+                    resetButton.className = 'button is-small is-warning is-light mr-2';
+                    resetButton.innerHTML = `<span class="icon is-small"><i class="fas fa-redo"></i></span><span>Reset Jam</span>`;
+                    resetButton.addEventListener('click', () => resetMachineRuntime(machine.docId, machineName));
+                    actionsCell.appendChild(resetButton);
 
                     if (machineStatusCounts[machine.status]) {
                         machineStatusCounts[machine.status]++;
@@ -117,6 +156,60 @@ function setupCompressorUnitMachinesListener() {
             console.error("[CompressorUnit] Error listening to machines:", error);
             machinesListBody.innerHTML = `<tr><td colspan="8" class="has-text-danger">Gagal memuat data mesin Kompresor Unit: ${error.message}</td></tr>`;
         });
+}
+
+// Fungsi untuk memperbarui status mesin
+async function updateMachineStatus(docId, newStatus, currentMachineData) {
+    try {
+        let updateData = {
+            status: newStatus,
+            updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+        };
+
+        // Jika mesin berubah ke RUN
+        if (newStatus === 'RUN') {
+            if (currentMachineData.status !== 'RUN') { // Hanya set lastRunStartTime jika sebelumnya bukan RUN
+                updateData.lastRunStartTime = firebase.firestore.FieldValue.serverTimestamp();
+            }
+        } 
+        // Jika mesin berubah dari RUN ke IDLE atau STOP
+        else if (currentMachineData.status === 'RUN' && currentMachineData.lastRunStartTime) {
+            const now = new Date();
+            const lastRunTime = currentMachineData.lastRunStartTime.toDate();
+            const runningDurationMs = now.getTime() - lastRunTime.getTime();
+            const runningDurationHours = runningDurationMs / (1000 * 60 * 60);
+
+            updateData.currentRuntimeHours = (currentMachineData.currentRuntimeHours || 0) + runningDurationHours;
+            updateData.lastRunStartTime = null; // Hentikan perhitungan
+        } else {
+             // Jika berubah dari IDLE/STOP ke IDLE/STOP, tidak ada perubahan runtime
+             updateData.lastRunStartTime = null; // Pastikan null jika tidak RUN
+        }
+
+        await db.collection('machines').doc(docId).update(updateData);
+        console.log(`[CompressorUnit] Machine ${docId} status updated to ${newStatus}.`);
+    } catch (error) {
+        console.error("[CompressorUnit] Error updating machine status:", error);
+        alert(`Gagal memperbarui status mesin: ${error.message}`);
+    }
+}
+
+// Fungsi untuk mereset jam operasional
+async function resetMachineRuntime(docId, machineName) {
+    if (!confirm(`Apakah Anda yakin ingin mereset jam operasional mesin ${machineName}? Aksi ini tidak dapat dibatalkan.`)) {
+        return;
+    }
+    try {
+        await db.collection('machines').doc(docId).update({
+            currentRuntimeHours: 0,
+            lastRunStartTime: null, // Pastikan waktu mulai juga direset
+            updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
+        alert(`Jam operasional mesin ${machineName} berhasil direset.`);
+    } catch (error) {
+        console.error("[CompressorUnit] Error resetting machine runtime:", error);
+        alert(`Gagal mereset jam operasional mesin: ${error.message}`);
+    }
 }
 
 // Tambahkan fungsi cleanup jika diperlukan oleh router (saat logout, dll.)
