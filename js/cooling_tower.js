@@ -1,92 +1,128 @@
 // js/cooling_tower.js
 import { db } from './firebase.js';
 
-let ctUnsubscribe = null;
+let machinesUnsubscribe = null; // Untuk listener mesin Cooling Tower
 
-// Fungsi pembantu untuk membuat card status mesin
-const createMachineStatusCard = (machine) => {
-    const statusClass = machine.status === 'RUN' ? 'is-success' : 
-                        machine.status === 'IDLE' ? 'is-warning' : 
-                        'is-danger';
-    const statusIcon = machine.status === 'RUN' ? 'fa-running' : 
-                       machine.status === 'IDLE' ? 'fa-clock' : 
-                       'fa-stop-circle';
-    
-    // Anda bisa menambahkan link navigasi ke detail mesin jika diperlukan
-    const detailLink = `/machines/${machine.docId}`;
-
-    return `
-        <div class="column is-one-quarter">
-            <div class="box notification ${statusClass} is-light">
-                <p class="title is-5">${machine.machineId}</p>
-                <p class="subtitle is-6">${machine.name}</p>
-                <hr class="dropdown-divider">
-                <div class="content">
-                    <p>
-                        <span class="icon-text">
-                            <span class="icon">
-                                <i class="fas ${statusIcon}"></i>
-                            </span>
-                            <span class="has-text-weight-bold">${machine.status}</span>
-                        </span>
-                    </p>
-                    <p class="is-size-7">Lokasi: ${machine.location || 'N/A'}</p>
-                    <a class="button is-small is-info is-outlined mt-2" onclick="window.navigateTo('${detailLink}')">Lihat Detail</a>
+export const renderCoolingTowerPage = async (containerElement) => {
+    containerElement.innerHTML = `
+        <h1 class="title">Status & Mesin Cooling Tower</h1>
+        
+        <div class="columns is-multiline mb-4">
+            <div class="column is-one-quarter">
+                <div class="box">
+                    <p class="title is-5">Cooling Tower</p>
+                    <p class="subtitle is-7 has-text-grey">Status Mesin</p>
+                    <div class="level is-mobile mt-3">
+                        <div class="level-item has-text-centered">
+                            <div>
+                                <span class="status-indicator is-success"></span>
+                                <p class="heading">RUN</p>
+                                <p class="title is-6" id="ct-run-count">0</p>
+                            </div>
+                        </div>
+                        <div class="level-item has-text-centered">
+                            <div>
+                                <span class="status-indicator is-warning"></span>
+                                <p class="heading">IDLE</p>
+                                <p class="title is-6" id="ct-idle-count">0</p>
+                            </div>
+                        </div>
+                        <div class="level-item has-text-centered">
+                            <div>
+                                <span class="status-indicator is-danger"></span>
+                                <p class="heading">STOP</p>
+                                <p class="title is-6" id="ct-stop-count">0</p>
+                            </div>
+                        </div>
+                    </div>
                 </div>
+            </div>
+            <!-- Anda bisa tambahkan card lain di sini jika ingin ringkasan KPI khusus CT -->
+        </div>
+
+        <div class="box mt-4">
+            <h2 class="subtitle">Daftar Mesin Cooling Tower</h2>
+            <div class="table-container">
+                <table class="table is-striped is-hoverable is-fullwidth">
+                    <thead>
+                        <tr>
+                            <th>ID Mesin</th>
+                            <th>Nama</th>
+                            <th>Lokasi</th>
+                            <th>Status</th>
+                            <th>Jam Operasional</th>
+                            <th>Interval Servis (Jam)</th>
+                            <th>Kapasitas Air</th>
+                            <th>Tipe Pompa</th>
+                        </tr>
+                    </thead>
+                    <tbody id="ct-machines-list">
+                        <!-- Data mesin Cooling Tower akan dimuat di sini -->
+                    </tbody>
+                </table>
             </div>
         </div>
     `;
+
+    // Ambil dan tampilkan status mesin dan daftar mesin Cooling Tower
+    setupCoolingTowerMachinesListener();
 };
 
-// Fungsi untuk me-render daftar mesin Cooling Tower
-const renderMachineList = (container, machines) => {
-    if (machines.length === 0) {
-        container.innerHTML = `<p class="column is-full notification is-warning">Tidak ada data mesin Cooling Tower.</p>`;
-        return;
+function setupCoolingTowerMachinesListener() {
+    const machinesListBody = document.getElementById('ct-machines-list');
+    if (!machinesListBody) return;
+
+    if (machinesUnsubscribe) {
+        machinesUnsubscribe();
     }
 
-    // Sort mesin berdasarkan Machine ID
-    machines.sort((a, b) => a.machineId.localeCompare(b.machineId));
-    
-    let html = '';
-    machines.forEach(machine => {
-        html += createMachineStatusCard(machine);
-    });
-    
-    container.innerHTML = html;
-};
+    const machineStatusCounts = { RUN: 0, IDLE: 0, STOP: 0 };
 
-// Fungsi utama untuk me-render halaman Cooling Tower
-export const renderCoolingTowerPage = (containerElement) => {
-    containerElement.innerHTML = `
-        <h1 class="title">Status Mesin Cooling Tower</h1>
-        <div class="columns is-multiline" id="ct-status-list">
-            <div class="column is-full"><progress class="progress is-small is-info" max="100">Memuat...</progress></div>
-        </div>
-    `;
-
-    // Pasang listener real-time
-    const ctListContainer = document.getElementById('ct-status-list');
-    if (ctUnsubscribe) ctUnsubscribe(); // Hapus listener lama jika ada
-    
-    // Listener untuk koleksi 'machines' dengan filter kategori
-    ctUnsubscribe = db.collection('machines')
+    machinesUnsubscribe = db.collection('machines')
         .where('category', '==', 'cooling_tower')
-        .onSnapshot(snapshot => {
-            const machines = [];
-            snapshot.forEach(doc => machines.push({ docId: doc.id, ...doc.data() }));
-            renderMachineList(ctListContainer, machines);
-        }, error => {
-            console.error("[CoolingTower] Error fetching data:", error);
-            ctListContainer.innerHTML = `<p class="column is-full notification is-danger">Gagal memuat data Cooling Tower: ${error.message}</p>`;
-        });
-};
+        .orderBy('name', 'asc')
+        .onSnapshot((snapshot) => {
+            machinesListBody.innerHTML = '';
+            machineStatusCounts.RUN = 0;
+            machineStatusCounts.IDLE = 0;
+            machineStatusCounts.STOP = 0;
 
-// Fungsi cleanup untuk menghapus listener saat meninggalkan halaman
-export const cleanupCoolingTowerPage = () => {
-    if (ctUnsubscribe) {
-        ctUnsubscribe();
-        ctUnsubscribe = null;
-        console.log("[CoolingTower] Cleanup complete.");
+            if (snapshot.empty) {
+                machinesListBody.innerHTML = `<tr><td colspan="8" class="has-text-centered">Tidak ada data mesin Cooling Tower.</td></tr>`;
+            } else {
+                snapshot.forEach(doc => {
+                    const machine = doc.data();
+                    const row = machinesListBody.insertRow();
+                    row.insertCell(0).textContent = machine.machineId;
+                    row.insertCell(1).textContent = machine.name;
+                    row.insertCell(2).textContent = machine.location;
+                    row.insertCell(3).textContent = machine.status;
+                    row.insertCell(4).textContent = (machine.currentRuntimeHours || 0) + ' Jam';
+                    row.insertCell(5).textContent = (machine.serviceIntervalHours || 0) + ' Jam';
+                    row.insertCell(6).textContent = (machine.additionalDetails?.waterCapacity || '-') + ' Liter';
+                    row.insertCell(7).textContent = machine.additionalDetails?.pumpType || '-';
+
+                    if (machineStatusCounts[machine.status]) {
+                        machineStatusCounts[machine.status]++;
+                    }
+                });
+            }
+
+            // Update status counts in the cards
+            document.getElementById('ct-run-count').innerText = machineStatusCounts.RUN;
+            document.getElementById('ct-idle-count').innerText = machineStatusCounts.IDLE;
+            document.getElementById('ct-stop-count').innerText = machineStatusCounts.STOP;
+
+        }, (error) => {
+            console.error("[CoolingTower] Error listening to machines:", error);
+            machinesListBody.innerHTML = `<tr><td colspan="8" class="has-text-danger">Gagal memuat data mesin Cooling Tower: ${error.message}</td></tr>`;
+        });
+}
+
+// Tambahkan fungsi cleanup jika diperlukan oleh router (saat logout, dll.)
+export const cleanupCoolingTowerListeners = () => {
+    if (machinesUnsubscribe) {
+        machinesUnsubscribe();
+        machinesUnsubscribe = null;
     }
 };
