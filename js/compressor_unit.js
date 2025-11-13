@@ -134,8 +134,14 @@ function setupCompressorUnitMachinesListener() {
                     const resetButton = document.createElement('button');
                     resetButton.className = 'button is-small is-warning is-light mr-2';
                     resetButton.innerHTML = `<span class="icon is-small"><i class="fas fa-redo"></i></span><span>Reset Jam</span>`;
-                    // PERBAIKAN DI SINI: Meneruskan machine.name
-                    resetButton.addEventListener('click', () => resetMachineRuntime(machine.docId, machine.name));
+                    
+                    // --- PERBAIKAN PENTING DI BARIS INI ---
+                    // Menggunakan machine.name (properti dari objek machine)
+                    // Bukan variabel machineName yang tidak terdefinisi
+                    console.log(`[CompressorUnit] Setting up reset button for ${machine.name || 'Unnamed Machine'}. Machine data:`, machine); // Debug log
+                    resetButton.addEventListener('click', () => resetMachineRuntime(machine.docId, machine.name || 'Unnamed Machine')); // Tambah fallback jika machine.name kosong
+                    // --- AKHIR PERBAIKAN PENTING ---
+
                     actionsCell.appendChild(resetButton);
 
                     if (machineStatusCounts[machine.status]) {
@@ -186,7 +192,7 @@ async function updateMachineStatus(docId, newStatus, currentMachineData) {
     }
 }
 
-async function resetMachineRuntime(docId, machineName) { // machineName sekarang diterima dengan benar
+async function resetMachineRuntime(docId, machineName) {
     if (!confirm(`Apakah Anda yakin ingin mereset jam operasional mesin ${machineName}? Aksi ini tidak dapat dibatalkan.`)) {
         return;
     }
