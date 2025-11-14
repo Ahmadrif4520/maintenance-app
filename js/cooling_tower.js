@@ -1,5 +1,6 @@
 // js/cooling_tower.js
 import { db } from './firebase.js';
+import { showCustomConfirm } from './ui_helpers.js'; // Impor modal konfirmasi kustom
 
 let machinesUnsubscribe = null; // Untuk listener mesin Cooling Tower
 
@@ -37,7 +38,6 @@ export const renderCoolingTowerPage = async (containerElement) => {
                     </div>
                 </div>
             </div>
-            <!-- Anda bisa tambahkan card lain di sini jika ingin ringkasan KPI khusus CT -->
         </div>
 
         <div class="box mt-4">
@@ -51,9 +51,9 @@ export const renderCoolingTowerPage = async (containerElement) => {
                             <th>Lokasi</th>
                             <th>Status</th>
                             <th>Jam Operasional</th>
+                            <th>Mulai RUN</th>
                             <th>Interval Servis (Jam)</th>
-                            <th>Kapasitas Air</th>
-                            <th>Tipe Pompa</th>
+                            <th>Aksi</th>
                         </tr>
                     </thead>
                     <tbody id="ct-machines-list">
@@ -64,7 +64,6 @@ export const renderCoolingTowerPage = async (containerElement) => {
         </div>
     `;
 
-    // Ambil dan tampilkan status mesin dan daftar mesin Cooling Tower
     setupCoolingTowerMachinesListener();
 };
 
@@ -91,16 +90,58 @@ function setupCoolingTowerMachinesListener() {
                 machinesListBody.innerHTML = `<tr><td colspan="8" class="has-text-centered">Tidak ada data mesin Cooling Tower.</td></tr>`;
             } else {
                 snapshot.forEach(doc => {
-                    const machine = doc.data();
+                    const machine = { docId: doc.id, ...doc.data() };
                     const row = machinesListBody.insertRow();
+
+                    const currentRuntimeHours = machine.currentRuntimeHours || 0;
+                    const serviceIntervalHours = machine.serviceIntervalHours || 0;
+                    let displayRuntimeHours = currentRuntimeHours;
+                    let lastRunStartTimeFormatted = 'N/A';
+
+                    if (machine.status === 'RUN' && machine.lastRunStartTime) {
+                        const now = new Date();
+                        const lastRunTime = machine.lastRunStartTime.toDate();
+                        const runningDurationMs = now.getTime() - lastRunTime.getTime();
+                        const runningDurationHours = runningDurationMs / (1000 * 60 * 60);
+                        displayRuntimeHours = currentRuntimeHours + runningDurationHours;
+                        lastRunStartTimeFormatted = lastRunTime.toLocaleString('id-ID', { dateStyle: 'short', timeStyle: 'short' });
+                    }
+
                     row.insertCell(0).textContent = machine.machineId;
                     row.insertCell(1).textContent = machine.name;
                     row.insertCell(2).textContent = machine.location;
-                    row.insertCell(3).textContent = machine.status;
-                    row.insertCell(4).textContent = (machine.currentRuntimeHours || 0) + ' Jam';
-                    row.insertCell(5).textContent = (machine.serviceIntervalHours || 0) + ' Jam';
-                    row.insertCell(6).textContent = (machine.additionalDetails?.waterCapacity || '-') + ' Liter';
-                    row.insertCell(7).textContent = machine.additionalDetails?.pumpType || '-';
+
+                    const statusCell = row.insertCell(3);
+                    const statusSelect = document.createElement('div');
+                    statusSelect.className = 'select is-small';
+                    statusSelect.innerHTML = `
+                        <select data-machine-id="${machine.docId}" class="machine-status-selector">
+                            <option value="RUN" ${machine.status === 'RUN' ? 'selected' : ''}>RUN</option>
+                            <option value="IDLE" ${machine.status === 'IDLE' ? 'selected' : ''}>IDLE</option>
+                            <option value="STOP" ${machine.status === 'STOP' ? 'selected' : ''}>STOP</option>
+                        </select>
+                    `;
+                    statusSelect.querySelector('select').addEventListener('change', (e) => {
+                        updateMachineStatus(e.target.dataset.machineId, e.target.value, machine);
+                    });
+                    statusCell.appendChild(statusSelect);
+                    
+                    row.insertCell(4).textContent = displayRuntimeHours.toFixed(2) + ' Jam';
+                    row.insertCell(5).textContent = lastRunStartTimeFormatted;
+                    row.insertCell(6).textContent = serviceIntervalHours + ' Jam';
+
+                    const actionsCell = row.insertCell(7);
+                    const resetButton = document.createElement('button');
+                    resetButton.className = 'button is-small is-warning is-light mr-2';
+                    resetButton.innerHTML = `<span class="icon is-small"><i class="fas fa-redo"></i></span><span>Reset Jam</span>`;
+                    
+                    resetButton.addEventListener('click', () => {
+                        showCustomConfirm(`Apakah Anda yakin ingin mereset jam operasional mesin ${machine.name}? Aksi ini tidak dapat dibatalkan.`, () => {
+                            resetMachineRuntimeConfirmed(machine.docId, machine.name);
+                        });
+                    });
+
+                    actionsCell.appendChild(resetButton);
 
                     if (machineStatusCounts[machine.status]) {
                         machineStatusCounts[machine.status]++;
@@ -108,7 +149,6 @@ function setupCoolingTowerMachinesListener() {
                 });
             }
 
-            // Update status counts in the cards
             document.getElementById('ct-run-count').innerText = machineStatusCounts.RUN;
             document.getElementById('ct-idle-count').innerText = machineStatusCounts.IDLE;
             document.getElementById('ct-stop-count').innerText = machineStatusCounts.STOP;
@@ -119,7 +159,52 @@ function setupCoolingTowerMachinesListener() {
         });
 }
 
-// Tambahkan fungsi cleanup jika diperlukan oleh router (saat logout, dll.)
+async function updateMachineStatus(docId, newStatus, currentMachineData) {
+    try {
+        let updateData = {
+            status: newStatus,
+            updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+        };
+
+        if (newStatus === 'RUN') {
+            if (currentMachineData.status !== 'RUN') {
+                updateData.lastRunStartTime = firebase.firestore.FieldValue.serverTimestamp();
+            }
+        } 
+        else if (currentMachineData.status === 'RUN' && currentMachineData.lastRunStartTime) {
+            const now = new Date();
+            const lastRunTime = currentMachineData.lastRunStartTime.toDate();
+            const runningDurationMs = now.getTime() - lastRunTime.getTime();
+            const runningDurationHours = runningDurationMs / (1000 * 60 * 60);
+
+            updateData.currentRuntimeHours = (currentMachineData.currentRuntimeHours || 0) + runningDurationHours;
+            updateData.lastRunStartTime = null;
+        } else {
+             updateData.lastRunStartTime = null;
+        }
+
+        await db.collection('machines').doc(docId).update(updateData);
+        console.log(`[CoolingTower] Machine ${docId} status updated to ${newStatus}.`);
+    } catch (error) {
+        console.error("[CoolingTower] Error updating machine status:", error);
+        alert(`Gagal memperbarui status mesin: ${error.message}`);
+    }
+}
+
+async function resetMachineRuntimeConfirmed(docId, machineName) {
+    try {
+        await db.collection('machines').doc(docId).update({
+            currentRuntimeHours: 0,
+            lastRunStartTime: null,
+            updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
+        alert(`Jam operasional mesin ${machineName} berhasil direset.`);
+    } catch (error) {
+        console.error("[CoolingTower] Error resetting machine runtime:", error);
+        alert(`Gagal mereset jam operasional mesin: ${error.message}`);
+    }
+}
+
 export const cleanupCoolingTowerListeners = () => {
     if (machinesUnsubscribe) {
         machinesUnsubscribe();
