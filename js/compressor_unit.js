@@ -135,12 +135,12 @@ function setupCompressorUnitMachinesListener() {
                     resetButton.className = 'button is-small is-warning is-light mr-2';
                     resetButton.innerHTML = `<span class="icon is-small"><i class="fas fa-redo"></i></span><span>Reset Jam</span>`;
                     
-                    // --- PERBAIKAN PENTING DI BARIS INI ---
-                    // Menggunakan machine.name (properti dari objek machine)
-                    // Bukan variabel machineName yang tidak terdefinisi
-                    console.log(`[CompressorUnit] Setting up reset button for ${machine.name || 'Unnamed Machine'}. Machine data:`, machine); // Debug log
-                    resetButton.addEventListener('click', () => resetMachineRuntime(machine.docId, machine.name || 'Unnamed Machine')); // Tambah fallback jika machine.name kosong
-                    // --- AKHIR PERBAIKAN PENTING ---
+                    // Menggunakan machine.name dan memanggil showCustomConfirm
+                    resetButton.addEventListener('click', () => {
+                        showCustomConfirm(`Apakah Anda yakin ingin mereset jam operasional mesin ${machine.name}? Aksi ini tidak dapat dibatalkan.`, () => {
+                            resetMachineRuntimeConfirmed(machine.docId, machine.name);
+                        });
+                    });
 
                     actionsCell.appendChild(resetButton);
 
@@ -192,22 +192,78 @@ async function updateMachineStatus(docId, newStatus, currentMachineData) {
     }
 }
 
-async function resetMachineRuntime(docId, machineName) {
-    if (!confirm(`Apakah Anda yakin ingin mereset jam operasional mesin ${machineName}? Aksi ini tidak dapat dibatalkan.`)) {
-        return;
-    }
+// Fungsi yang akan dipanggil jika konfirmasi diterima
+async function resetMachineRuntimeConfirmed(docId, machineName) {
     try {
         await db.collection('machines').doc(docId).update({
             currentRuntimeHours: 0,
             lastRunStartTime: null,
             updatedAt: firebase.firestore.FieldValue.serverTimestamp()
         });
-        alert(`Jam operasional mesin ${machineName} berhasil direset.`);
+        alert(`Jam operasional mesin ${machineName} berhasil direset.`); // Anda bisa ganti ini dengan modal alert kustom juga
     } catch (error) {
         console.error("[CompressorUnit] Error resetting machine runtime:", error);
-        alert(`Gagal mereset jam operasional mesin: ${error.message}`);
+        alert(`Gagal mereset jam operasional mesin: ${error.message}`); // Atau ini
     }
 }
+
+// --- FUNGSI MODAL KONFIRMASI KUSTOM BARU ---
+let confirmCallback = null;
+
+function showCustomConfirm(message, callback) {
+    const modal = document.getElementById('custom-confirm-modal');
+    if (!modal) {
+        console.error("Custom confirm modal not found.");
+        alert("Terjadi kesalahan: Modal konfirmasi tidak ditemukan.");
+        return;
+    }
+
+    document.getElementById('custom-confirm-message').innerText = message;
+    confirmCallback = callback; // Simpan callback untuk nanti dipanggil
+
+    modal.classList.add('is-active'); // Tampilkan modal Bulma
+
+    // Setup event listeners for modal buttons (only once)
+    // Pastikan listener tidak diduplikasi jika modal dibuka berkali-kali
+    const okBtn = document.getElementById('custom-confirm-ok');
+    const cancelBtn = document.getElementById('custom-confirm-cancel');
+    const closeBtn = document.getElementById('custom-confirm-close');
+    const modalBg = document.querySelector('#custom-confirm-modal .modal-background');
+
+    // Hapus listener sebelumnya untuk mencegah duplikasi
+    okBtn.removeEventListener('click', handleConfirmOk);
+    cancelBtn.removeEventListener('click', handleConfirmCancel);
+    closeBtn.removeEventListener('click', handleConfirmCancel);
+    modalBg.removeEventListener('click', handleConfirmCancel);
+
+    // Tambahkan listener baru
+    okBtn.addEventListener('click', handleConfirmOk);
+    cancelBtn.addEventListener('click', handleConfirmCancel);
+    closeBtn.addEventListener('click', handleConfirmCancel);
+    modalBg.addEventListener('click', handleConfirmCancel);
+}
+
+function handleConfirmOk() {
+    closeCustomConfirm();
+    if (confirmCallback) {
+        confirmCallback(); // Panggil callback jika ada
+    }
+}
+
+function handleConfirmCancel() {
+    closeCustomConfirm();
+    // Tidak perlu melakukan apa-apa jika dibatalkan
+}
+
+function closeCustomConfirm() {
+    const modal = document.getElementById('custom-confirm-modal');
+    if (modal) {
+        modal.classList.remove('is-active');
+    }
+    confirmCallback = null; // Reset callback
+}
+// --- AKHIR FUNGSI MODAL KONFIRMASI KUSTOM BARU ---
+
 
 export const cleanupCompressorUnitListeners = () => {
     if (machinesUnsubscribe) {
