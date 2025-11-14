@@ -47,6 +47,25 @@
             </div>
         </div>
     </nav>
+<!-- Custom Confirmation Modal (Add this section) -->
+    <div class="modal" id="custom-confirm-modal">
+    <div class="modal-background"></div>
+    <div class="modal-card">
+    <header class="modal-card-head">
+    <p class="modal-card-title" id="custom-confirm-title">Konfirmasi</p>
+    <button class="delete" aria-label="close" id="custom-confirm-close"></button>
+    </header>
+        <section class="modal-card-body">
+        <p id="custom-confirm-message">Apakah Anda yakin ingin melakukan aksi ini?</p>
+        </section>
+    <footer class="modal-card-foot is-justify-content-flex-end">
+    <button class="button is-danger" id="custom-confirm-cancel">Batal</button>
+    <button class="button is-success" id="custom-confirm-ok">Ya, Lanjutkan</button>
+    </footer>
+    </div>
+    </div>
+    <!-- End Custom Confirmation Modal -->
+
 
     <div id="notification-toast-container" style="position: fixed; top: 20px; right: 20px; z-index: 1000;">
     <!-- Notifikasi toast akan muncul di sini -->  
